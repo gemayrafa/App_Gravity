@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro de Obras - Google Sheets</title>
+    <title>Registro de Obras - Avanzado</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
 
     <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-2xl">
-        <h1 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">Nuevo Registro de Obra (Sheets)</h1>
+        <h1 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">Nuevo Registro de Obra</h1>
         
         <form id="formObra" class="space-y-5">
             <div>
@@ -32,12 +32,9 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Origen</label>
                     <select id="Origen" required class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
-                        <option value="">Selecciona una opción...</option>
-                        <option value="Web">Web</option>
-                        <option value="Recomendación">Recomendación</option>
-                        <option value="Comercial">Contacto Comercial</option>
-                        <option value="Otro">Otro</option>
+                        <option value="">Cargando orígenes...</option>
                     </select>
+                    <input type="text" id="NuevoOrigen" placeholder="Escribe el nuevo origen..." class="hidden mt-2 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Producto</label>
@@ -73,40 +70,104 @@
     </div>
 
     <script>
-        // PEGA AQUÍ TU URL DE GOOGLE APPS SCRIPT (la que termina en /exec)
-        const URL_SCRIPT = "https://script.google.com/macros/s/AKfycby1KAC-cBOEBT1W4WWkClQdK2J1X70NQjEKqItp3Nc98CXI0bBLkjQ6aWsTmAoQwqqg/exec";
+        // PEGA AQUÍ TU NUEVA URL DE GOOGLE APPS SCRIPT
+        const URL_SCRIPT = "https://script.google.com/macros/s/AKfycby5Wu-b3uazi--jgpBy0Gx5vzN3qBmSU_oKwaDiWWEn0pJ77slF1nImCi6_lnnZYhuo/exec";
 
+        // 1. CONFIGURAR FECHA POR OMISIÓN AL CARGAR LA PÁGINA
+        function establecerFechaHoy() {
+            const hoy = new Date();
+            const año = hoy.getFullYear();
+            const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+            const dia = String(hoy.getDate()).padStart(2, '0');
+            document.getElementById('Fecha').value = `${año}-${mes}-${dia}`;
+        }
+
+        // 2. CARGAR LOS ORÍGENES DINÁMICAMENTE DESDE GOOGLE SHEETS
+        function cargarOrigenes() {
+            const selectOrigen = document.getElementById('Origen');
+            
+            fetch(URL_SCRIPT)
+            .then(response => response.json())
+            .then(listaOrigenes => {
+                selectOrigen.innerHTML = '<option value="">Selecciona una opción...</option>';
+                
+                listaOrigenes.forEach(origen => {
+                    const option = document.createElement('option');
+                    option.value = origen;
+                    option.textContent = origen;
+                    selectOrigen.appendChild(option);
+                });
+
+                // Añadimos una opción extra al final para introducir uno nuevo
+                const optionNuevo = document.createElement('option');
+                optionNuevo.value = "__NUEVO__";
+                optionNuevo.textContent = "+ Añadir nuevo origen...";
+                selectOrigen.appendChild(optionNuevo);
+            })
+            .catch(error => {
+                console.error("Error cargando orígenes:", error);
+                selectOrigen.innerHTML = `
+                    <option value="">Selecciona una opción...</option>
+                    <option value="Agente">Agente</option>
+                    <option value="Product Specialist">Product Specialist</option>
+                    <option value="Cliente">Cliente</option>
+                `;
+            });
+        }
+
+        // Mostrar u ocultar el campo de texto libre si eligen "+ Añadir nuevo origen..."
+        document.getElementById('Origen').addEventListener('change', function() {
+            const campoNuevo = document.getElementById('NuevoOrigen');
+            if (this.value === "__NUEVO__") {
+                campoNuevo.classList.remove('hidden');
+                campoNuevo.required = true;
+            } else {
+                campoNuevo.classList.add('hidden');
+                campoNuevo.required = false;
+            }
+        });
+
+        // Ejecutar al cargar la página
+        establecerFechaHoy();
+        cargarOrigenes();
+
+        // 3. ENVÍO DEL FORMULARIO (POST)
         document.getElementById('formObra').addEventListener('submit', function(e) {
-            e.preventDefault(); // Evita que la página se recargue
+            e.preventDefault();
             
             const boton = document.getElementById('btnGuardar');
             boton.disabled = true;
             boton.innerText = "Guardando...";
 
-            // Recorremos los datos del formulario
+            // Determinar el valor final del origen
+            let origenSeleccionado = document.getElementById('Origen').value;
+            if (origenSeleccionado === "__NUEVO__") {
+                origenSeleccionado = document.getElementById('NuevoOrigen').value.trim();
+            }
+
             const datos = {
                 obra: document.getElementById('obra').value,
                 Cliente: document.getElementById('Cliente').value,
                 Fecha: document.getElementById('Fecha').value,
-                Origen: document.getElementById('Origen').value,
+                Origen: origenSeleccionado,
                 Producto: document.getElementById('Producto').value,
                 m2: document.getElementById('m2').value,
                 Valor: document.getElementById('Valor').value,
                 Éxito: document.getElementById('Éxito').value
             };
 
-            // Enviamos los datos a Google Sheets usando fetch
             fetch(URL_SCRIPT, {
                 method: 'POST',
-                mode: 'no-cors', // Necesario para evitar problemas de CORS con Apps Script
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(datos)
             })
             .then(() => {
-                alert('¡Registro guardado con éxito en Google Sheets!');
-                document.getElementById('formObra').reset(); // Limpia el formulario
+                alert('¡Registro guardado con éxito!');
+                document.getElementById('formObra').reset();
+                establecerFechaHoy(); // Restablece la fecha tras limpiar el formulario
+                document.getElementById('NuevoOrigen').classList.add('hidden');
+                cargarOrigenes();     // Recarga la lista por si se ha añadido un origen nuevo
             })
             .catch(error => {
                 console.error('Error:', error);
