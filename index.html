@@ -2,99 +2,101 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro de Obras Avanzado</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Registro de Obras Móvil</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"/>
-    <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
-    <style>
-        /* Ajuste para que armonice perfectamente con el diseño de Tailwind */
-        .choices__inner {
-            background-color: white !important;
-            border-color: #d1d5db !important;
-            border-radius: 0.375rem !important;
-            padding: 4px 8px !important;
-        }
-        .choices__input {
-            background-color: transparent !important;
-        }
-        .choices[data-type*=select-one] .choices__input {
-            padding: 4px !important;
-            margin-bottom: 0px !important;
-        }
-    </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+<body class="bg-gray-100 min-h-screen flex flex-col justify-between antialiased">
 
-    <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-2xl">
-        <h1 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">Nuevo Registro de Obra</h1>
+    <header class="bg-white shadow-sm w-full px-4 py-3 flex items-center justify-between border-b border-gray-200 sticky top-0 z-50">
+        <div class="flex items-center space-x-2">
+            <span class="flex h-2 w-2 relative">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+            <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Nueva Obra</span>
+        </div>
         
-        <form id="formObra" class="space-y-5">
+        <button id="btnSalir" class="flex items-center space-x-1 text-red-600 bg-red-50 hover:bg-red-100 font-medium text-xs px-3 py-1.5 rounded-md border border-red-100 transition duration-150 cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+            </svg>
+            <span>Salir</span>
+        </button>
+    </header>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Obra</label>
-                <input type="text" id="obra" required autocomplete="off" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Introduce el nombre de la obra...">
-            </div>
+    <main class="flex-grow w-full max-w-md mx-auto p-3 sm:p-4 flex items-center justify-center">
+        <div class="bg-white p-5 rounded-xl shadow-sm w-full border border-gray-200">
+            
+            <form id="formObra" class="space-y-4">
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
-                    <select id="Cliente" required class="w-full">
-                        <option value="">Cargando clientes...</option>
-                    </select>
+                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">Obra</label>
+                    <input type="text" id="obra" required autocomplete="off" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50/50" placeholder="Nombre o ref. de la obra">
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
-                    <input type="date" id="Fecha" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
-                </div>
-            </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Origen</label>
-                    <select id="Origen" required class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
-                        <option value="">Cargando orígenes...</option>
-                    </select>
-                    <input type="text" id="NuevoOrigen" placeholder="Escribe el nuevo origen..." class="hidden mt-2 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">Cliente</label>
+                    <input type="text" id="Cliente" list="listaClientes" required autocomplete="off" placeholder="Busca o escribe nuevo cliente" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50/50">
+                    <datalist id="listaClientes">
+                        </datalist>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Producto</label>
-                    <input type="text" id="Producto" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Introduce el producto...">
-                </div>
-            </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">m²</label>
-                    <input type="number" id="m2" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">Fecha</label>
+                    <input type="date" id="Fecha" required class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50/50">
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Valor (€)</label>
-                    <input type="number" id="Valor" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">¿Éxito?</label>
-                    <select id="Éxito" required class="w-full px-3 py-2 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-green-500">
-                        <option value="Pendiente">Pendiente</option>
-                        <option value="Sí">Sí (Ganada)</option>
-                        <option value="No">No (Perdida)</option>
-                    </select>
-                </div>
-            </div>
 
-            <div class="pt-4">
-                <button type="submit" id="btnGuardar" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 px-4 rounded-md transition duration-200">
-                    Guardar Registro
-                </button>
-            </div>
-        </form>
-    </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">Origen</label>
+                        <select id="Origen" required class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base bg-white focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50/50">
+                            <option value="">Cargando...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">Producto</label>
+                        <input type="text" id="Producto" required autocomplete="off" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50/50" placeholder="Tipo de producto">
+                    </div>
+                </div>
+
+                <input type="text" id="NuevoOrigen" placeholder="Escribe el nuevo origen..." class="hidden w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-yellow-50/50">
+
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">m²</label>
+                        <input type="number" id="m2" step="0.01" inputmode="decimal" required class="w-full px-2 py-2.5 border border-gray-300 rounded-lg text-base text-center focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50/50">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">Valor (€)</label>
+                        <input type="number" id="Valor" step="0.01" inputmode="decimal" required class="w-full px-2 py-2.5 border border-gray-300 rounded-lg text-base text-center focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50/50">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">¿Éxito?</label>
+                        <select id="Éxito" required class="w-full px-2 py-2.5 border border-gray-300 rounded-lg text-base bg-white focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50/50">
+                            <option value="Pendiente">Pend.</option>
+                            <option value="Sí">Ganada</option>
+                            <option value="No">Perdida</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="pt-2">
+                    <button type="submit" id="btnGuardar" class="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-bold py-3 px-4 rounded-lg text-base shadow-sm transition duration-150 cursor-pointer">
+                        Guardar Registro
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <footer class="text-center py-3 text-[10px] text-gray-400 font-medium tracking-wider uppercase">
+        Enlace directo a Google Sheets
+    </footer>
 
     <script>
         // PEGA AQUÍ TU URL DE GOOGLE APPS SCRIPT
         const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbxsiqmB2181kAbKfVp0JXLt9tyKm7VuU9H_pauTw6d1vAq3h-AFQgbPOww9tobfUffj/exec";
-        
-        let choicesClienteInstance = null;
 
         function establecerFechaHoy() {
             const hoy = new Date();
@@ -103,49 +105,33 @@
 
         function cargarDatosDinamicos() {
             const selectOrigen = document.getElementById('Origen');
-            const selectCliente = document.getElementById('Cliente');
+            const datalistClientes = document.getElementById('listaClientes');
             
             fetch(URL_SCRIPT)
             .then(response => response.json())
             .then(data => {
-                // 1. Rellenar orígenes
-                selectOrigen.innerHTML = '<option value="">Selecciona una opción...</option>';
+                // Rellenar orígenes
+                selectOrigen.innerHTML = '<option value="">Origen...</option>';
                 data.origenes.forEach(origen => {
                     const option = document.createElement('option');
                     option.value = origen; option.textContent = origen;
                     selectOrigen.appendChild(option);
                 });
                 const optionNuevo = document.createElement('option');
-                optionNuevo.value = "__NUEVO__"; optionNuevo.textContent = "+ Añadir nuevo origen...";
+                optionNuevo.value = "__NUEVO__"; optionNuevo.textContent = "+ Nuevo origen...";
                 selectOrigen.appendChild(optionNuevo);
 
-                // 2. Rellenar clientes
-                if (choicesClienteInstance) {
-                    choicesClienteInstance.destroy();
-                }
-
-                selectCliente.innerHTML = '<option value="">Escribe para buscar o añadir nuevo...</option>';
+                // Rellenar clientes de forma nativa en el datalist
+                datalistClientes.innerHTML = '';
                 data.clientes.forEach(cliente => {
                     const option = document.createElement('option');
                     option.value = cliente;
-                    option.textContent = cliente;
-                    selectCliente.appendChild(option);
-                });
-
-                choicesClienteInstance = new Choices(selectCliente, {
-                    searchEnabled: true,
-                    addItems: true,
-                    addItemFilter: null,
-                    removeItemButton: false,
-                    noResultsText: 'No se encuentra. Pulsa Enter para añadirlo como nuevo',
-                    noChoicesText: 'Sin clientes guardados',
-                    itemSelectText: 'Presiona para seleccionar',
-                    addChoices: true 
+                    datalistClientes.appendChild(option);
                 });
             })
             .catch(error => {
-                console.error("Error cargando datos dinámicos:", error);
-                selectOrigen.innerHTML = '<option value="">Selecciona una opción...</option><option value="Web">Web</option><option value="Recomendación">Recomendación</option><option value="Comercial">Contacto Comercial</option>';
+                console.error("Error cargando datos:", error);
+                selectOrigen.innerHTML = '<option value="">Origen...</option><option value="Web">Web</option><option value="Recomendación">Recomendación</option><option value="Comercial">Comercial</option>';
             });
         }
 
@@ -153,8 +139,17 @@
             const campoNuevo = document.getElementById('NuevoOrigen');
             if (this.value === "__NUEVO__") {
                 campoNuevo.classList.remove('hidden'); campoNuevo.required = true;
+                campoNuevo.focus();
             } else {
                 campoNuevo.classList.add('hidden'); campoNuevo.required = false;
+            }
+        });
+
+        // CONTROL DEL BOTÓN SALIR
+        document.getElementById('btnSalir').addEventListener('click', function() {
+            if (confirm("¿Cerrar la aplicación?")) {
+                window.close();
+                window.location.href = "about:blank";
             }
         });
 
@@ -175,7 +170,6 @@
             }
 
             const datos = {
-                // Indicamos la pestaña fija de destino de forma interna
                 Destino: "Obras_2026", 
                 obra: document.getElementById('obra').value.trim(),
                 Cliente: document.getElementById('Cliente').value.trim(),
@@ -202,7 +196,7 @@
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Hubo un error al guardar los datos.');
+                alert('Hubo un error al guardar.');
             })
             .finally(() => {
                 boton.disabled = false;
