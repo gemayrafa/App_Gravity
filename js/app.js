@@ -1,34 +1,35 @@
 // Main App Orchestrator for SheetsForms
 
 import { isOnline, testConnection, sendRowData } from './connection.js';
-import { 
-  getScriptUrl, 
-  saveScriptUrl, 
-  clearConnection, 
-  getSheetsStructure, 
-  saveSheetsStructure, 
-  getActiveTab, 
-  getQueue, 
-  addToQueue, 
-  removeFromQueue, 
-  addToHistory 
+import {
+  getScriptUrl,
+  saveScriptUrl,
+  clearConnection,
+  getSheetsStructure,
+  saveSheetsStructure,
+  getActiveTab,
+  getQueue,
+  addToQueue,
+  removeFromQueue,
+  addToHistory
 } from './storage.js';
-import { 
-  initUI, 
-  showView, 
-  updateNetworkStatus, 
-  setConnectionUrlInput, 
-  renderTabs, 
-  updateFooterInfo, 
-  getFormData, 
-  resetForm, 
-  renderHistory, 
-  showLoading, 
-  closeAlert, 
-  showAlert, 
-  showToast, 
+import {
+  initUI,
+  showView,
+  updateNetworkStatus,
+  setConnectionUrlInput,
+  renderTabs,
+  updateFooterInfo,
+  getFormData,
+  resetForm,
+  renderHistory,
+  showLoading,
+  closeAlert,
+  showAlert,
+  showToast,
   validateForm,
-  openGuide
+  openGuide,
+  hideSplashScreen // ➔ Añadido aquí
 } from './ui.js';
 
 // Global state
@@ -38,18 +39,18 @@ let isSyncing = false;
 document.addEventListener('DOMContentLoaded', () => {
   // Bind UI Events
   initUI(handleConnect, handleDisconnect, handleFormSubmit, handleSyncQueue);
-  
+
   // Set initial network indicator
   updateNetworkStatus(isOnline());
-  
+
   // Listen for connection changes
   window.addEventListener('online', () => {
     updateNetworkStatus(true);
     showToast('success', 'Conexión a internet restaurada');
     // Trigger auto sync when coming back online
-    handleSyncQueue(true); 
+    handleSyncQueue(true);
   });
-  
+
   window.addEventListener('offline', () => {
     updateNetworkStatus(false);
     showToast('warning', 'Modo offline activado');
@@ -67,9 +68,9 @@ async function initializeAppState() {
   renderHistory(); // load history list from storage
 
   if (!savedUrl) {
-    // Show connection setup screen
     showView('setup');
     updateFooterInfo(null);
+    hideSplashScreen(); // ➔ Añadido aquí
     return;
   }
 
@@ -88,7 +89,7 @@ async function initializeAppState() {
       showView('dashboard');
     } catch (error) {
       console.warn('Could not refresh sheets structure on startup:', error);
-      
+
       // Fallback to cache if request fails
       if (savedStructure) {
         renderTabs(savedStructure);
@@ -99,6 +100,8 @@ async function initializeAppState() {
         showView('setup');
         showAlert('error', 'Error de Conexión', 'No se pudo conectar con el script y no hay estructura guardada. Verifica la URL.');
       }
+    } finally {
+      hideSplashScreen(); // ➔ Añadido aquí
     }
   } else {
     // Offline startup fallback to local cache
@@ -109,7 +112,8 @@ async function initializeAppState() {
     } else {
       showView('setup');
       showAlert('warning', 'Sin Conexión', 'Necesitas internet la primera vez para configurar la hoja de cálculo.');
-    }
+    } hideSplashScreen();
+
   }
 }
 
@@ -137,19 +141,19 @@ async function handleConnect(url) {
 
   try {
     const sheets = await testConnection(url);
-    
+
     // Save URL and structure
     saveScriptUrl(url);
     saveSheetsStructure(sheets);
-    
+
     // Setup UI
     renderTabs(sheets);
     updateFooterInfo(url);
     showView('dashboard');
-    
+
     closeAlert();
     showAlert('success', '¡Conectado con éxito!', `Se importaron ${sheets.length} pestañas de la hoja de cálculo.`);
-    
+
     // Check if there's anything to sync
     handleSyncQueue(true);
 
@@ -197,22 +201,22 @@ async function handleFormSubmit() {
 
   if (isOnline()) {
     showLoading('Guardando registro...');
-    
+
     try {
       await sendRowData(url, activeTab, data);
-      
+
       // Update history and UI
       addToHistory(activeTab, data, 'synced');
       resetForm();
-      
+
       closeAlert();
       showToast('success', '¡Registro guardado con éxito!');
       renderHistory();
-      
+
     } catch (error) {
       closeAlert();
       console.error(error);
-      
+
       // If server communication fails but we are technically online, offer saving offline
       Swal.fire({
         title: 'Error de envío',
@@ -250,7 +254,7 @@ function saveSubmissionOffline(activeTab, data) {
 async function handleSyncQueue(silent = false) {
   const queue = getQueue();
   const url = getScriptUrl();
-  
+
   if (queue.length === 0) {
     if (!silent) showToast('info', 'No hay registros pendientes de sincronizar.');
     return;
@@ -274,10 +278,10 @@ async function handleSyncQueue(silent = false) {
   for (const item of queue) {
     try {
       await sendRowData(url, item.sheetName, item.rowData);
-      
+
       // Mark as synced in history
       addToHistory(item.sheetName, item.rowData, 'synced', item.id);
-      
+
       // Remove from queue
       removeFromQueue(item.id);
       successCount++;

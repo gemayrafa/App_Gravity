@@ -96,10 +96,10 @@ export function initUI(onConnectHandler, onDisconnectHandler, onSubmitHandler, o
   document.querySelectorAll('#close-guide-btn, #close-guide-btn-bottom').forEach(btn => {
     btn.addEventListener('click', closeGuide);
   });
-  
+
   // Theme toggler
   document.getElementById('toggle-theme-btn')?.addEventListener('click', toggleTheme);
-  
+
   // Settings gear opens connection view
   document.getElementById('open-settings-btn')?.addEventListener('click', () => {
     showView('setup');
@@ -144,10 +144,10 @@ export function initUI(onConnectHandler, onDisconnectHandler, onSubmitHandler, o
   });
 
   // Initialize theme from storage/prefers
-  const savedTheme = localStorage.getItem('sheets_forms_theme') || 
+  const savedTheme = localStorage.getItem('sheets_forms_theme') ||
     (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   document.documentElement.setAttribute('data-theme', savedTheme);
-  
+
   // Re-initialize lucide icons
   lucide.createIcons();
 }
@@ -196,14 +196,14 @@ export function setConnectionUrlInput(url) {
  */
 export function renderTabs(sheets) {
   sheetTabsList.innerHTML = '';
-  
+
   if (!sheets || sheets.length === 0) {
     sheetTabsList.innerHTML = '<p class="empty-state-text">No se encontraron pestañas.</p>';
     return;
   }
-  
+
   let activeTabName = getActiveTab();
-  
+
   // Fallback to first tab if saved is not in list
   const tabExists = sheets.some(s => s.name === activeTabName);
   if (!activeTabName || !tabExists) {
@@ -216,26 +216,26 @@ export function renderTabs(sheets) {
     btn.className = `tab-btn ${sheet.name === activeTabName ? 'active' : ''}`;
     btn.dataset.name = sheet.name;
     btn.innerHTML = `<i data-lucide="sheet"></i> <span>${sheet.name}</span>`;
-    
+
     btn.addEventListener('click', () => {
       // Toggle active states in UI
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      
+
       // Save state
       saveActiveTab(sheet.name);
-      
+
       // Render form
       renderFormForSheet(sheet);
     });
-    
+
     sheetTabsList.appendChild(btn);
   });
-  
+
   // Render form for initial active sheet
   const activeSheet = sheets.find(s => s.name === activeTabName) || sheets[0];
   renderFormForSheet(activeSheet);
-  
+
   // Re-run lucide for newly added tabs
   lucide.createIcons();
 }
@@ -267,16 +267,16 @@ function parseHeader(header) {
   const cleanHeader = header.trim();
   let isRequired = false;
   let cleanName = cleanHeader;
-  
+
   // Detect if field is required (ends with '*')
   if (cleanHeader.endsWith('*')) {
     isRequired = true;
     cleanName = cleanHeader.substring(0, cleanHeader.length - 1).trim();
   }
-  
+
   const lower = cleanName.toLowerCase();
   let type = 'text'; // Default type
-  
+
   // Simple heuristics based on Spanish & English keywords
   if (lower.includes('fecha') || lower.includes('date') || lower.includes('dia') || lower.includes('día')) {
     type = 'date';
@@ -295,7 +295,7 @@ function parseHeader(header) {
   } else if (lower.includes('color')) {
     type = 'color';
   }
-  
+
   return { type, isRequired, cleanName };
 }
 
@@ -306,11 +306,11 @@ function parseHeader(header) {
 function renderFormForSheet(sheet) {
   dynamicFieldsContainer.innerHTML = '';
   activeSheetTitle.textContent = sheet.name;
-  
+
   // Exclude empty headers
   const headers = (sheet.headers || []).filter(h => h && h.trim() !== '');
   fieldsCountBadge.textContent = `${headers.length} campos`;
-  
+
   if (headers.length === 0) {
     dynamicFieldsContainer.innerHTML = `
       <div class="empty-state-text">
@@ -320,52 +320,52 @@ function renderFormForSheet(sheet) {
     lucide.createIcons();
     return;
   }
-  
+
   headers.forEach(header => {
     const { type, isRequired, cleanName } = parseHeader(header);
-    
+
     const fieldDiv = document.createElement('div');
-    
+
     if (type === 'switch') {
       fieldDiv.className = 'form-field form-field-switch';
-      
+
       const label = document.createElement('label');
       label.setAttribute('for', `field-${header}`);
       label.textContent = cleanName;
-      
+
       const switchControl = document.createElement('label');
       switchControl.className = 'switch-control';
-      
+
       const input = document.createElement('input');
       input.type = 'checkbox';
       input.id = `field-${header}`;
       input.name = header;
-      
+
       const slider = document.createElement('span');
       slider.className = 'switch-slider';
-      
+
       switchControl.appendChild(input);
       switchControl.appendChild(slider);
-      
+
       fieldDiv.appendChild(label);
       fieldDiv.appendChild(switchControl);
-      
+
     } else {
       fieldDiv.className = 'form-field';
-      
+
       const label = document.createElement('label');
       label.setAttribute('for', `field-${header}`);
       label.textContent = cleanName;
-      
+
       if (isRequired) {
         const asterisk = document.createElement('span');
         asterisk.className = 'required-asterisk';
         asterisk.textContent = ' *';
         label.appendChild(asterisk);
       }
-      
+
       fieldDiv.appendChild(label);
-      
+
       let input;
       if (type === 'textarea') {
         input = document.createElement('textarea');
@@ -373,7 +373,7 @@ function renderFormForSheet(sheet) {
       } else {
         input = document.createElement('input');
         input.type = type;
-        
+
         // Auto date/time helpers
         if (type === 'date') {
           // Set placeholder/default to today if helpful
@@ -384,20 +384,20 @@ function renderFormForSheet(sheet) {
           const mins = String(now.getMinutes()).padStart(2, '0');
           input.value = `${hrs}:${mins}`;
         }
-        
+
         input.placeholder = `Ingresar ${cleanName.toLowerCase()}`;
       }
-      
+
       input.id = `field-${header}`;
       input.name = header;
       if (isRequired) input.required = true;
-      
+
       fieldDiv.appendChild(input);
     }
-    
+
     dynamicFieldsContainer.appendChild(fieldDiv);
   });
-  
+
   // Set focus on first input if text or number
   const firstInput = dynamicFieldsContainer.querySelector('input, textarea');
   if (firstInput && (firstInput.type === 'text' || firstInput.type === 'number')) {
@@ -412,11 +412,11 @@ function renderFormForSheet(sheet) {
 export function getFormData() {
   const fields = dynamicFieldsContainer.querySelectorAll('input, textarea, select');
   const data = {};
-  
+
   fields.forEach(field => {
     const name = field.name;
     let value = field.value;
-    
+
     if (field.type === 'checkbox') {
       // Return simple "SÍ" or "NO" string for sheets
       value = field.checked ? 'SÍ' : 'NO';
@@ -424,10 +424,10 @@ export function getFormData() {
       // Keep as number or empty
       value = field.value !== "" ? Number(field.value) : "";
     }
-    
+
     data[name] = value;
   });
-  
+
   return data;
 }
 
@@ -450,7 +450,7 @@ export function resetForm() {
       field.value = '';
     }
   });
-  
+
   // Return focus to first input
   const firstInput = dynamicFieldsContainer.querySelector('input, textarea');
   if (firstInput && (firstInput.type === 'text' || firstInput.type === 'number')) {
@@ -474,25 +474,25 @@ export function renderHistory() {
   // Render recent history logs list
   const history = getHistory();
   recentLogsList.innerHTML = '';
-  
+
   if (history.length === 0) {
     recentLogsList.innerHTML = '<p class="empty-state-text">No has realizado envíos recientes.</p>';
     return;
   }
-  
+
   history.forEach(item => {
     const div = document.createElement('div');
     div.className = 'history-item';
-    
+
     // Format timestamp nicely
     let timeStr = 'Reciente';
     try {
       const date = new Date(item.timestamp);
       timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } catch {}
-    
+    } catch { }
+
     const isSynced = item.status === 'synced';
-    
+
     div.innerHTML = `
       <div class="history-item-left">
         <div>
@@ -507,10 +507,10 @@ export function renderHistory() {
         </div>
       </div>
     `;
-    
+
     recentLogsList.appendChild(div);
   });
-  
+
   lucide.createIcons();
 }
 
@@ -588,7 +588,7 @@ export function showToast(icon, title) {
       toast.addEventListener('mouseleave', Swal.resumeTimer);
     }
   });
-  
+
   Toast.fire({
     icon,
     title
@@ -602,14 +602,14 @@ export function showToast(icon, title) {
 export function validateForm() {
   const fields = dynamicFieldsContainer.querySelectorAll('input[required], textarea[required]');
   let isValid = true;
-  
+
   fields.forEach(field => {
     // Basic standard check
     if (!field.value || field.value.trim() === '') {
       isValid = false;
       field.style.borderColor = 'var(--danger)';
       field.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.1)';
-      
+
       // Shake animation trigger
       const fieldWrapper = field.closest('.form-field');
       if (fieldWrapper) {
@@ -618,7 +618,7 @@ export function validateForm() {
           fieldWrapper.style.animation = 'shake 0.3s ease-in-out';
         }, 10);
       }
-      
+
       // Reset color on type
       field.addEventListener('input', function resetError() {
         field.style.borderColor = '';
@@ -627,10 +627,20 @@ export function validateForm() {
       });
     }
   });
-  
+
   if (!isValid) {
     showToast('error', 'Por favor, llena los campos obligatorios (*)');
   }
-  
+
   return isValid;
+}
+/**
+ * Oculta la pantalla de carga inicial con una animación de desvanecimiento
+ */
+export function hideSplashScreen() {
+  const splash = document.getElementById('splash-screen');
+  if (splash) {
+    splash.classList.add('fade-out');
+    setTimeout(() => splash.remove(), 400);
+  }
 }
