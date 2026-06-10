@@ -9,12 +9,19 @@
 <body class="bg-gray-100 min-h-screen flex flex-col justify-between antialiased">
 
     <header class="bg-white shadow-sm w-full px-4 py-3 flex items-center justify-between border-b border-gray-200 sticky top-0 z-50">
-        <div class="flex items-center space-x-2">
+        <div class="flex items-center space-x-3">
             <span class="flex h-2 w-2 relative">
                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                 <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
             </span>
-            <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Nueva Obra</span>
+            
+            <div class="relative inline-block">
+                <select id="selectorDestino" onchange="alternarFormulario(this.value)" class="text-sm font-bold text-gray-700 bg-gray-50 border border-gray-300 rounded-md px-2.5 py-1.5 pr-8 uppercase tracking-wide focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none cursor-pointer">
+                    <option value="Obras" selected>Obras ▾</option>
+                    <option value="Iniciativas">Iniciativas ▾</option>
+                    <option value="Formaciones">Formaciones ▾</option>
+                </select>
+            </div>
         </div>
         
         <button id="btnSalir" class="flex items-center space-x-1 text-red-600 bg-red-50 hover:bg-red-100 font-medium text-xs px-3 py-1.5 rounded-md border border-red-100 transition duration-150 cursor-pointer">
@@ -30,16 +37,19 @@
             
             <form id="formObra" class="space-y-4">
 
-                <div>
-                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">Obra</label>
-                    <input type="text" id="obra" required autocomplete="off" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50/50" placeholder="Nombre o ref. de la obra">
+                <div class="border-b border-gray-100 pb-2">
+                    <h2 id="tituloFormulario" class="text-sm font-bold text-gray-400 uppercase tracking-wider">Formulario: Obras</h2>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">Cliente</label>
-                    <input type="text" id="Cliente" list="listaClientes" required autocomplete="off" placeholder="Busca o escribe nuevo cliente" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50/50">
-                    <datalist id="listaClientes">
-                        </datalist>
+                    <label id="labelDinamicoObra" class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">Obra / Registro</label>
+                    <input type="text" id="obra" required autocomplete="off" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50/50" placeholder="Nombre o referencia">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">Cliente / Solicitante</label>
+                    <input type="text" id="Cliente" list="listaClientes" required autocomplete="off" placeholder="Busca o escribe..." class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50/50">
+                    <datalist id="listaClientes"></datalist>
                 </div>
 
                 <div>
@@ -55,7 +65,7 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">Producto</label>
+                        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">Producto / Tipo</label>
                         <input type="text" id="Producto" required autocomplete="off" class="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50/50" placeholder="Tipo de producto">
                     </div>
                 </div>
@@ -63,8 +73,8 @@
                 <input type="text" id="NuevoOrigen" placeholder="Escribe el nuevo origen..." class="hidden w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-green-500 bg-yellow-50/50">
 
                 <div class="grid grid-cols-3 gap-2">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">m²</label>
+                    <div id="contenedorM2">
+                        <label id="labelM2" class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">m²</label>
                         <input type="number" id="m2" step="0.01" inputmode="decimal" required class="w-full px-2 py-2.5 border border-gray-300 rounded-lg text-base text-center focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50/50">
                     </div>
                     <div>
@@ -72,10 +82,10 @@
                         <input type="number" id="Valor" step="0.01" inputmode="decimal" required class="w-full px-2 py-2.5 border border-gray-300 rounded-lg text-base text-center focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50/50">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">¿Éxito?</label>
+                        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">¿Estado?</label>
                         <select id="Éxito" required class="w-full px-2 py-2.5 border border-gray-300 rounded-lg text-base bg-white focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50/50">
                             <option value="Pendiente">Pend.</option>
-                            <option value="Sí">Ganada</option>
+                            <option value="Sí">Ganada / Hecho</option>
                             <option value="No">Perdida</option>
                         </select>
                     </div>
@@ -95,12 +105,41 @@
     </footer>
 
     <script>
-        // PEGA AQUÍ TU URL DE GOOGLE APPS SCRIPT
         const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbxsiqmB2181kAbKfVp0JXLt9tyKm7VuU9H_pauTw6d1vAq3h-AFQgbPOww9tobfUffj/exec";
 
         function establecerFechaHoy() {
             const hoy = new Date();
             document.getElementById('Fecha').value = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+        }
+
+        // FUNCIÓN PARA ADAPTAR EL FORMULARIO DEPENDIENDO DE LA PESTAÑA SELECCIONADA
+        function alternarFormulario(destino) {
+            const titulo = document.getElementById('tituloFormulario');
+            const labelObra = document.getElementById('labelDinamicoObra');
+            const inputObra = document.getElementById('obra');
+            const contenedorM2 = document.getElementById('contenedorM2');
+            const inputM2 = document.getElementById('m2');
+
+            titulo.innerText = `Formulario: ${destino}`;
+
+            if (destino === "Obras") {
+                labelObra.innerText = "Obra";
+                inputObra.placeholder = "Nombre o ref. de la obra";
+                contenedorM2.classList.remove('hidden');
+                inputM2.required = true;
+            } else if (destino === "Iniciativas") {
+                labelObra.innerText = "Iniciativa";
+                inputObra.placeholder = "Nombre del proyecto o iniciativa";
+                contenedorM2.classList.remove('hidden');
+                inputM2.required = true;
+            } else if (destino === "Formaciones") {
+                labelObra.innerText = "Curso / Formación";
+                inputObra.placeholder = "Nombre de la sesión formativa";
+                // En formaciones los m² no suelen aplicar, lo ocultamos y desactivamos el "required"
+                contenedorM2.classList.add('hidden');
+                inputM2.required = false;
+                inputM2.value = "0"; 
+            }
         }
 
         function cargarDatosDinamicos() {
@@ -110,7 +149,6 @@
             fetch(URL_SCRIPT)
             .then(response => response.json())
             .then(data => {
-                // Rellenar orígenes
                 selectOrigen.innerHTML = '<option value="">Origen...</option>';
                 data.origenes.forEach(origen => {
                     const option = document.createElement('option');
@@ -121,7 +159,6 @@
                 optionNuevo.value = "__NUEVO__"; optionNuevo.textContent = "+ Nuevo origen...";
                 selectOrigen.appendChild(optionNuevo);
 
-                // Rellenar clientes de forma nativa en el datalist
                 datalistClientes.innerHTML = '';
                 data.clientes.forEach(cliente => {
                     const option = document.createElement('option');
@@ -145,7 +182,6 @@
             }
         });
 
-        // CONTROL DEL BOTÓN SALIR
         document.getElementById('btnSalir').addEventListener('click', function() {
             if (confirm("¿Cerrar la aplicación?")) {
                 window.close();
@@ -169,8 +205,11 @@
                 origenSeleccionado = document.getElementById('NuevoOrigen').value.trim();
             }
 
+            // Capturamos el destino seleccionado en el menú superior para enviarlo a Apps Script
+            const destinoSeleccionado = document.getElementById('selectorDestino').value;
+
             const datos = {
-                Destino: "Obras", 
+                Destino: destinoSeleccionado, 
                 obra: document.getElementById('obra').value.trim(),
                 Cliente: document.getElementById('Cliente').value.trim(),
                 Fecha: document.getElementById('Fecha').value,
@@ -188,10 +227,12 @@
                 body: JSON.stringify(datos)
             })
             .then(() => {
-                alert('¡Registro guardado con éxito!');
+                alert(`¡Registro guardado con éxito en la pestaña ${destinoSeleccionado}!`);
                 document.getElementById('formObra').reset();
                 establecerFechaHoy();
                 document.getElementById('NuevoOrigen').classList.add('hidden');
+                // Re-inicializamos el formulario para el destino que estaba marcado
+                alternarFormulario(destinoSeleccionado);
                 cargarDatosDinamicos();
             })
             .catch(error => {
