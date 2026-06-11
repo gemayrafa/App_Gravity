@@ -11,10 +11,11 @@ import { Combobox } from './combobox.js';
 // --- Default Hardcoded Schema (Fallback if offline or not yet connected) ---
 const DEFAULT_SCHEMA = {
   "Obras": {
-    headers: ["Fecha", "Obra", "Cliente", "Ubicación", "Presupuesto", "Estado", "Notas"],
+    headers: ["Fecha", "Obra", "Cliente", "Origen", "Productos", "Metros", "Importe", "Estado", "Notas"],
     dropdownOptions: {
-      "Estado": ["Pendiente", "En Progreso", "Completado", "Cancelado"],
-      "Cliente": ["Mapei S.A.", "Construcciones Alfa", "Grupo Iberia", "Ayuntamiento Madrid"]
+      "Estado": ["25%", "50%", "75%", "100%"],
+      "Cliente": ["Mapei S.A.", "Construcciones Alfa", "Grupo Iberia", "Ayuntamiento Madrid"],
+      "Origen": ["Prescriptor", "Distribuidor", "Constructor", "Página Web"]
     }
   },
   "Iniciativas": {
@@ -236,7 +237,7 @@ function renderActiveForm() {
     
     // Determine the field type and setup matching input constraints
     const dropdownOptions = tabSchema.dropdownOptions ? tabSchema.dropdownOptions[header] : null;
-    const isOpenDropdown = ["Cliente", "Responsable", "Instructor", "Tipo"].includes(header);
+    const isOpenDropdown = ["Cliente", "Responsable", "Instructor", "Tipo", "Origen"].includes(header);
     
     if (isOpenDropdown) {
       // 1. OPEN DROPDOWN: Autocomplete Combobox
@@ -305,20 +306,21 @@ function renderActiveForm() {
       fieldGroup.appendChild(textarea);
       DOM.fieldsContainer.appendChild(fieldGroup);
       
-    } else if (["presupuesto", "costo", "coste asoc", "horas", "asistentes"].includes(header.toLowerCase())) {
+    } else if (["presupuesto", "costo", "coste asoc", "horas", "asistentes", "metros", "importe"].includes(header.toLowerCase())) {
       // 5. NUMERIC FIELDS: Trigger correct mobile keyboard keypads
       const input = document.createElement('input');
       input.type = 'number';
       input.id = `field-${header}`;
       input.name = header;
-      input.placeholder = header.toLowerCase().includes('asoc') || header.toLowerCase().includes('cost') || header.toLowerCase().includes('presupuesto') ? '0.00' : '0';
-      input.step = 'any';
+      input.placeholder = '0';
       
-      if (header.toLowerCase() === 'asistentes') {
+      if (["asistentes", "metros", "importe"].includes(header.toLowerCase())) {
         input.inputMode = 'numeric'; // Integer only keypad
         input.step = '1';
       } else {
         input.inputMode = 'decimal'; // Keypad with decimal point
+        input.step = 'any';
+        input.placeholder = '0.00';
       }
       
       fieldGroup.appendChild(input);
