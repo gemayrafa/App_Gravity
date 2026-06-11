@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -16,13 +15,11 @@
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-
 <body>
 
   <!-- App Wrapper resembling a native mobile container -->
   <div class="app-container">
-
-    <!-- Top Header -->
+    
     <!-- Splash Screen (Visible by default on load) -->
     <div id="splash-screen" class="splash-screen">
       <div class="splash-content">
@@ -33,6 +30,8 @@
         <div class="splash-spinner"></div>
       </div>
     </div>
+    
+    <!-- Top Header -->
     <header class="app-header">
       <div class="header-left">
         <div class="logo-icon">
@@ -59,8 +58,8 @@
 
     <!-- Main Content Area -->
     <main class="app-content">
-
-      <!-- VIEW 1: Connection Setup Screen (Visible when not connected) -->
+      
+      <!-- VIEW 1: Connection Setup Screen (Visible when not connected - 'active' removed) -->
       <section id="setup-view" class="view-section">
         <div class="welcome-card card animate-fade-in">
           <div class="welcome-header">
@@ -75,8 +74,7 @@
             <label for="script-url-input">URL del Web App de Apps Script</label>
             <div class="url-input-wrapper">
               <i data-lucide="globe" class="input-icon"></i>
-              <input type="url" id="script-url-input" placeholder="https://script.google.com/macros/s/.../exec" required
-                autocomplete="off">
+              <input type="url" id="script-url-input" placeholder="https://script.google.com/macros/s/.../exec" required autocomplete="off">
             </div>
             <span class="input-help">Debes implementar el script en tu hoja de cálculo como Aplicación Web.</span>
           </div>
@@ -94,7 +92,7 @@
 
       <!-- VIEW 2: Form Dashboard Screen (Visible when connected) -->
       <section id="dashboard-view" class="view-section">
-
+        
         <!-- Tab Navigation (Tabs from Sheets) -->
         <div class="sheet-tabs-container">
           <div class="sheet-tabs-label">
@@ -114,13 +112,13 @@
             <h2 id="active-sheet-title">Formulario</h2>
             <span class="badge" id="fields-count-badge">0 campos</span>
           </div>
-
+          
           <!-- Dynamic Form -->
           <form id="dynamic-entry-form" novalidate>
             <div id="dynamic-fields-container">
               <!-- Dynamically generated inputs will go here -->
             </div>
-
+            
             <!-- Submit Button -->
             <button type="submit" id="submit-form-btn" class="btn btn-primary btn-submit">
               <i data-lucide="send"></i> Guardar Registro
@@ -157,10 +155,10 @@
         </div>
 
       </section>
-
+      
     </main>
 
-    <!-- Bottom Navigation (Optional fallback for quick actions, displays database details) -->
+    <!-- Bottom Navigation -->
     <footer class="app-footer" id="app-footer-info">
       <div class="footer-info">
         <i data-lucide="file-spreadsheet"></i>
@@ -181,16 +179,14 @@
           </button>
         </div>
         <div class="modal-body">
-          <p class="modal-intro">Sigue estos pasos para conectar tu Google Sheets con esta aplicación en menos de 2
-            minutos:</p>
-
+          <p class="modal-intro">Sigue estos pasos para conectar tu Google Sheets con esta aplicación en menos de 2 minutos:</p>
+          
           <div class="steps-list">
             <div class="step-item">
               <div class="step-number">1</div>
               <div class="step-text">
                 <p><strong>Abre tu Google Sheets</strong></p>
-                <p>Asegúrate de que la primera fila de cada pestaña contenga los títulos de tus columnas (ej. <i>Nombre,
-                    Fecha, Teléfono</i>).</p>
+                <p>Asegúrate de que la primera fila de cada pestaña contenga los títulos de tus columnas (ej. <i>Nombre, Fecha, Teléfono</i>).</p>
               </div>
             </div>
 
@@ -207,7 +203,7 @@
               <div class="step-text">
                 <p><strong>Pega el Código del Puente</strong></p>
                 <p>Borra cualquier código existente en el archivo `Código.gs` y pega el siguiente script:</p>
-
+                
                 <div class="code-container">
                   <pre><code id="script-code-block"></code></pre>
                   <button id="copy-code-btn" class="btn btn-small">
@@ -221,8 +217,7 @@
               <div class="step-number">4</div>
               <div class="step-text">
                 <p><strong>Guarda e Implementa</strong></p>
-                <p>Haz clic en el icono de guardar (disco) ➔ <strong>Implementar</strong> ➔ <strong>Nueva
-                    implementación</strong>.</p>
+                <p>Haz clic en el icono de guardar (disco) ➔ <strong>Implementar</strong> ➔ <strong>Nueva implementación</strong>.</p>
               </div>
             </div>
 
@@ -235,9 +230,7 @@
                   <li><strong>Ejecutar como:</strong> Mismo usuario (tú)</li>
                   <li><strong>Quién tiene acceso:</strong> Cualquiera</li>
                 </ul>
-                <p>Haz clic en <strong>Implementar</strong>. Google te pedirá autorizar permisos (haz clic en
-                  <i>Configuración avanzada</i> y luego en <i>Ir a Proyecto (no seguro)</i> para confirmar tus propios
-                  permisos).</p>
+                <p>Haz clic en **Implementar**. Google te pedirá autorizar permisos (haz clic en <i>Configuración avanzada</i> y luego en <i>Ir a Proyecto (no seguro)</i> para confirmar tus propios permisos).</p>
               </div>
             </div>
 
@@ -245,8 +238,7 @@
               <div class="step-number">6</div>
               <div class="step-text">
                 <p><strong>Copia la URL del Web App</strong></p>
-                <p>Copia la URL que termina en <code>/exec</code> y pégala en la pantalla de conexión de esta
-                  aplicación.</p>
+                <p>Copia la URL que termina en <code>/exec</code> y pégala en la pantalla de conexión de esta aplicación.</p>
               </div>
             </div>
           </div>
@@ -265,5 +257,4 @@
   <script type="module" src="js/app.js"></script>
 
 </body>
-
 </html>

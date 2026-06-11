@@ -1,35 +1,37 @@
 // Main App Orchestrator for SheetsForms
 
 import { isOnline, testConnection, sendRowData } from './connection.js';
-import {
-  getScriptUrl,
-  saveScriptUrl,
-  clearConnection,
-  getSheetsStructure,
-  saveSheetsStructure,
-  getActiveTab,
-  getQueue,
-  addToQueue,
-  removeFromQueue,
-  addToHistory
+import { 
+  getScriptUrl, 
+  saveScriptUrl, 
+  clearConnection, 
+  getSheetsStructure, 
+  saveSheetsStructure, 
+  getActiveTab, 
+  getQueue, 
+  addToQueue, 
+  removeFromQueue, 
+  addToHistory,
+  updateCachedUniqueValues
 } from './storage.js';
-import {
-  initUI,
-  showView,
-  updateNetworkStatus,
-  setConnectionUrlInput,
-  renderTabs,
-  updateFooterInfo,
-  getFormData,
-  resetForm,
-  renderHistory,
-  showLoading,
-  closeAlert,
-  showAlert,
-  showToast,
+import { 
+  initUI, 
+  showView, 
+  updateNetworkStatus, 
+  setConnectionUrlInput, 
+  renderTabs, 
+  updateFooterInfo, 
+  getFormData, 
+  resetForm, 
+  renderHistory, 
+  showLoading, 
+  closeAlert, 
+  showAlert, 
+  showToast, 
   validateForm,
   openGuide,
-  hideSplashScreen // ➔ Añadido aquí
+  hideSplashScreen, // Imported to hide load screen
+  refreshActiveForm
 } from './ui.js';
 
 // Global state
@@ -39,18 +41,17 @@ let isSyncing = false;
 document.addEventListener('DOMContentLoaded', () => {
   // Bind UI Events
   initUI(handleConnect, handleDisconnect, handleFormSubmit, handleSyncQueue);
-
+  
   // Set initial network indicator
   updateNetworkStatus(isOnline());
-
+  
   // Listen for connection changes
   window.addEventListener('online', () => {
     updateNetworkStatus(true);
     showToast('success', 'Conexión a internet restaurada');
-    // Trigger auto sync when coming back online
-    handleSyncQueue(true);
+    handleSyncQueue(true); 
   });
-
+  
   window.addEventListener('offline', () => {
     updateNetworkStatus(false);
     showToast('warning', 'Modo offline activado');
@@ -68,9 +69,10 @@ async function initializeAppState() {
   renderHistory(); // load history list from storage
 
   if (!savedUrl) {
+    // Show connection setup screen
     showView('setup');
     updateFooterInfo(null);
-    hideSplashScreen(); // ➔ Añadido aquí
+    hideSplashScreen(); // Hide loading screen
     return;
   }
 
@@ -89,7 +91,7 @@ async function initializeAppState() {
       showView('dashboard');
     } catch (error) {
       console.warn('Could not refresh sheets structure on startup:', error);
-
+      
       // Fallback to cache if request fails
       if (savedStructure) {
         renderTabs(savedStructure);
@@ -101,7 +103,7 @@ async function initializeAppState() {
         showAlert('error', 'Error de Conexión', 'No se pudo conectar con el script y no hay estructura guardada. Verifica la URL.');
       }
     } finally {
-      hideSplashScreen(); // ➔ Añadido aquí
+      hideSplashScreen(); // Hide loading screen
     }
   } else {
     // Offline startup fallback to local cache
@@ -112,8 +114,8 @@ async function initializeAppState() {
     } else {
       showView('setup');
       showAlert('warning', 'Sin Conexión', 'Necesitas internet la primera vez para configurar la hoja de cálculo.');
-    } hideSplashScreen();
-
+    }
+    hideSplashScreen(); // Hide loading screen
   }
 }
 
@@ -141,19 +143,19 @@ async function handleConnect(url) {
 
   try {
     const sheets = await testConnection(url);
-
+    
     // Save URL and structure
     saveScriptUrl(url);
     saveSheetsStructure(sheets);
-
+    
     // Setup UI
     renderTabs(sheets);
     updateFooterInfo(url);
     showView('dashboard');
-
+    
     closeAlert();
     showAlert('success', '¡Conectado con éxito!', `Se importaron ${sheets.length} pestañas de la hoja de cálculo.`);
-
+    
     // Check if there's anything to sync
     handleSyncQueue(true);
 
@@ -201,23 +203,23 @@ async function handleFormSubmit() {
 
   if (isOnline()) {
     showLoading('Guardando registro...');
-
+    
     try {
       await sendRowData(url, activeTab, data);
-
+      
       // Update history and UI
       addToHistory(activeTab, data, 'synced');
-      resetForm();
-
+      updateCachedUniqueValues(activeTab, data);
+      refreshActiveForm();
+      
       closeAlert();
       showToast('success', '¡Registro guardado con éxito!');
       renderHistory();
-
+      
     } catch (error) {
       closeAlert();
       console.error(error);
-
-      // If server communication fails but we are technically online, offer saving offline
+      
       Swal.fire({
         title: 'Error de envío',
         text: 'No se pudo comunicar con Google Sheets. ¿Quieres guardarlo localmente para enviarlo más tarde?',
@@ -232,17 +234,17 @@ async function handleFormSubmit() {
       });
     }
   } else {
-    // Save offline directly
     saveSubmissionOffline(activeTab, data);
   }
 }
 
 /**
- * Helper to queue submission locally
+ * Helper to queue submission offline
  */
 function saveSubmissionOffline(activeTab, data) {
   addToQueue(activeTab, data);
-  resetForm();
+  updateCachedUniqueValues(activeTab, data);
+  refreshActiveForm();
   showToast('warning', 'Registro guardado localmente (Offline)');
   renderHistory();
 }
@@ -254,7 +256,7 @@ function saveSubmissionOffline(activeTab, data) {
 async function handleSyncQueue(silent = false) {
   const queue = getQueue();
   const url = getScriptUrl();
-
+  
   if (queue.length === 0) {
     if (!silent) showToast('info', 'No hay registros pendientes de sincronizar.');
     return;
@@ -278,17 +280,13 @@ async function handleSyncQueue(silent = false) {
   for (const item of queue) {
     try {
       await sendRowData(url, item.sheetName, item.rowData);
-
-      // Mark as synced in history
       addToHistory(item.sheetName, item.rowData, 'synced', item.id);
-
-      // Remove from queue
+      updateCachedUniqueValues(item.sheetName, item.rowData);
       removeFromQueue(item.id);
       successCount++;
     } catch (error) {
       console.error(`Failed to sync item ${item.id}:`, error);
       failCount++;
-      // Stop synchronization flow on first failure to keep order integrity
       break;
     }
   }
@@ -296,6 +294,9 @@ async function handleSyncQueue(silent = false) {
   isSyncing = false;
   closeAlert();
   renderHistory();
+  if (successCount > 0) {
+    refreshActiveForm();
+  }
 
   if (successCount > 0) {
     if (failCount > 0) {

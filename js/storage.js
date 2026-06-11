@@ -175,3 +175,40 @@ export function addToHistory(sheetName, rowData, status = 'synced', id = null) {
 export function clearHistory() {
   localStorage.removeItem(KEYS.SUBMISSION_HISTORY);
 }
+
+/**
+ * Appends new unique values to the local cache of sheets structure
+ * @param {string} sheetName 
+ * @param {Object} rowData Keys are headers, values are input entries
+ */
+export function updateCachedUniqueValues(sheetName, rowData) {
+  const structure = getSheetsStructure();
+  if (!structure) return;
+  
+  let modified = false;
+  structure.forEach(sheet => {
+    if (sheet.name === sheetName) {
+      if (!sheet.uniqueValues) sheet.uniqueValues = {};
+      
+      Object.entries(rowData).forEach(([header, val]) => {
+        if (val !== null && val !== undefined && val !== "" && typeof val !== 'boolean') {
+          const strVal = String(val).trim();
+          if (strVal) {
+            if (!sheet.uniqueValues[header]) {
+              sheet.uniqueValues[header] = [];
+            }
+            if (sheet.uniqueValues[header].indexOf(strVal) === -1) {
+              sheet.uniqueValues[header].push(strVal);
+              sheet.uniqueValues[header].sort();
+              modified = true;
+            }
+          }
+        }
+      });
+    }
+  });
+  
+  if (modified) {
+    saveSheetsStructure(structure);
+  }
+}
