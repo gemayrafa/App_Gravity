@@ -666,9 +666,12 @@ async function refreshSchemaSilently() {
   if (!state.scriptUrl || !ConnectionManager.isOnline()) return;
   const result = await ConnectionManager.fetchSchema(state.scriptUrl);
   if (result.success) {
+    console.log("Esquema descargado con éxito del servidor:", result.data);
     state.schema = result.data;
     StorageManager.setSchema(result.data);
     renderActiveForm();
+  } else {
+    console.warn("Fallo al descargar el esquema:", result.error);
   }
 }
 
