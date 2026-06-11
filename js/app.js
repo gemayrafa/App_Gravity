@@ -1,310 +1,803 @@
-// Main App Orchestrator for SheetsForms
+/**
+ * MAIN CONTROLLER: Application Orchestrator (app.js)
+ * Coordinates UI states, theme, navigation, dynamic form rendering,
+ * combobox instantiation, network status changes, and submission workflows.
+ */
 
-import { isOnline, testConnection, sendRowData } from './connection.js';
-import { 
-  getScriptUrl, 
-  saveScriptUrl, 
-  clearConnection, 
-  getSheetsStructure, 
-  saveSheetsStructure, 
-  getActiveTab, 
-  getQueue, 
-  addToQueue, 
-  removeFromQueue, 
-  addToHistory,
-  updateCachedUniqueValues
-} from './storage.js';
-import { 
-  initUI, 
-  showView, 
-  updateNetworkStatus, 
-  setConnectionUrlInput, 
-  renderTabs, 
-  updateFooterInfo, 
-  getFormData, 
-  resetForm, 
-  renderHistory, 
-  showLoading, 
-  closeAlert, 
-  showAlert, 
-  showToast, 
-  validateForm,
-  openGuide,
-  hideSplashScreen, // Imported to hide load screen
-  refreshActiveForm
-} from './ui.js';
+import { StorageManager } from './storage.js';
+import { ConnectionManager } from './connection.js';
+import { Combobox } from './combobox.js';
 
-// Global state
-let isSyncing = false;
+// --- Default Hardcoded Schema (Fallback if offline or not yet connected) ---
+const DEFAULT_SCHEMA = {
+  "Obras": {
+    headers: ["Fecha", "Obra", "Cliente", "Ubicación", "Presupuesto", "Estado", "Notas"],
+    dropdownOptions: {
+      "Estado": ["Pendiente", "En Progreso", "Completado", "Cancelado"],
+      "Cliente": ["Mapei S.A.", "Construcciones Alfa", "Grupo Iberia", "Ayuntamiento Madrid"]
+    }
+  },
+  "Iniciativas": {
+    headers: ["Fecha", "Iniciativa", "Responsable", "Descripción", "Presupuesto", "Estado", "Notas"],
+    dropdownOptions: {
+      "Estado": ["Planificada", "En Curso", "Evaluada", "Finalizada"],
+      "Responsable": ["Juan Pérez", "María Gómez", "Carlos Ruiz", "Sofía Martín"]
+    }
+  },
+  "Formaciones": {
+    headers: ["Fecha", "Formación", "Instructor", "Asistentes", "Costo", "Estado", "Notas"],
+    dropdownOptions: {
+      "Estado": ["Programada", "Impartida", "Cancelada"],
+      "Instructor": ["Laura Torres", "Diego López", "Elena Basso"]
+    }
+  },
+  "Actividad": {
+    headers: ["Fecha", "Actividad", "Tipo", "Horas", "Coste Asoc", "Notas"],
+    dropdownOptions: {
+      "Tipo": ["Visita Técnica", "Reunión", "Demostración", "Preparación", "Administrativo"]
+    }
+  }
+};
 
-// Initialize app on DOM content loaded
+// --- App State ---
+const state = {
+  scriptUrl: '',
+  activeTab: 'Obras', // Default active sheet tab
+  schema: null,
+  activeComboboxes: {}, // Map of initialized Combobox instances
+  isSyncing: false
+};
+
+// --- DOM Elements ---
+const DOM = {
+  splash: document.getElementById('splash-screen'),
+  toggleThemeBtn: document.getElementById('toggle-theme-btn'),
+  connectionStatus: document.getElementById('connection-status'),
+  connectionStatusText: document.getElementById('connection-status-text'),
+  
+  // Views
+  setupView: document.getElementById('setup-view'),
+  dashboardView: document.getElementById('dashboard-view'),
+  settingsView: document.getElementById('settings-view'),
+  
+  // Setup fields
+  scriptUrlInput: document.getElementById('script-url-input'),
+  connectBtn: document.getElementById('connect-btn'),
+  openGuideBtn: document.getElementById('open-guide-btn'),
+  
+  // Dashboard fields
+  tabCategoryTitle: document.getElementById('tab-category-title'),
+  activeSheetTitle: document.getElementById('active-sheet-title'),
+  fieldsCountBadge: document.getElementById('fields-count-badge'),
+  dynamicForm: document.getElementById('dynamic-entry-form'),
+  fieldsContainer: document.getElementById('dynamic-fields-container'),
+  
+  // Sync banner
+  offlineSyncCard: document.getElementById('offline-sync-card'),
+  offlineCount: document.getElementById('offline-count'),
+  syncNowBtn: document.getElementById('sync-now-btn'),
+  
+  // History list
+  recentLogsList: document.getElementById('recent-logs-list'),
+  clearHistoryBtn: document.getElementById('clear-history-btn'),
+  
+  // Settings view
+  settingsUrlInput: document.getElementById('settings-url-input'),
+  saveSettingsBtn: document.getElementById('save-settings-btn'),
+  disconnectBtn: document.getElementById('disconnect-btn'),
+  settingsNetworkStatus: document.getElementById('settings-network-status'),
+  settingsTabsList: document.getElementById('settings-tabs-list'),
+  openGuideBtnSettings: document.getElementById('open-guide-btn-settings'),
+  
+  // Navigation
+  navbar: document.querySelector('.app-navbar'),
+  navItems: document.querySelectorAll('.nav-item'),
+  
+  // Modals
+  guideModal: document.getElementById('guide-modal'),
+  closeGuideBtn: document.getElementById('close-guide-btn'),
+  closeGuideBtnBottom: document.getElementById('close-guide-btn-bottom')
+};
+
+// --- Initialize App ---
 document.addEventListener('DOMContentLoaded', () => {
-  // Bind UI Events
-  initUI(handleConnect, handleDisconnect, handleFormSubmit, handleSyncQueue);
+  initTheme();
+  loadConnectionState();
+  bindEvents();
+  checkNetworkStatus();
   
-  // Set initial network indicator
-  updateNetworkStatus(isOnline());
+  // Trigger initial schema rendering
+  renderActiveForm();
+  renderOfflineBanner();
+  renderLogs();
   
-  // Listen for connection changes
-  window.addEventListener('online', () => {
-    updateNetworkStatus(true);
-    showToast('success', 'Conexión a internet restaurada');
-    handleSyncQueue(true); 
-  });
+  // Auto-sync on startup if connected
+  if (ConnectionManager.isOnline()) {
+    setTimeout(syncOfflineQueue, 1500);
+  }
   
-  window.addEventListener('offline', () => {
-    updateNetworkStatus(false);
-    showToast('warning', 'Modo offline activado');
-  });
-
-  // Load saved connection state
-  initializeAppState();
+  // Hide splash screen after 600ms
+  setTimeout(() => {
+    DOM.splash.classList.add('fade-out');
+  }, 600);
 });
 
-/**
- * Loads saved configuration and sets up the views
- */
-async function initializeAppState() {
-  const savedUrl = getScriptUrl();
-  renderHistory(); // load history list from storage
+// --- Theme Mode ---
+function initTheme() {
+  const savedTheme = StorageManager.getTheme();
+  document.documentElement.setAttribute('data-theme', savedTheme);
+}
 
-  if (!savedUrl) {
-    // Show connection setup screen
-    showView('setup');
-    updateFooterInfo(null);
-    hideSplashScreen(); // Hide loading screen
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  StorageManager.setTheme(newTheme);
+}
+
+// --- Connection & View Loading ---
+function loadConnectionState() {
+  state.scriptUrl = StorageManager.getScriptUrl();
+  state.schema = StorageManager.getSchema() || DEFAULT_SCHEMA;
+  
+  DOM.scriptUrlInput.value = state.scriptUrl;
+  DOM.settingsUrlInput.value = state.scriptUrl;
+  
+  updateViewVisibility();
+}
+
+function updateViewVisibility() {
+  // If URL is missing, enforce setup view
+  if (!state.scriptUrl) {
+    DOM.setupView.classList.remove('hidden');
+    DOM.setupView.classList.add('active');
+    DOM.dashboardView.classList.add('hidden');
+    DOM.dashboardView.classList.remove('active');
+    DOM.settingsView.classList.add('hidden');
+    DOM.settingsView.classList.remove('active');
+    DOM.navbar.classList.add('hidden'); // Hide bottom nav during setup
+  } else {
+    DOM.navbar.classList.remove('hidden');
+    // Decide which view is active (if config tab selected)
+    const activeNavItem = document.querySelector('.nav-item.active');
+    const tabName = activeNavItem ? activeNavItem.getAttribute('data-tab') : 'Obras';
+    
+    if (tabName === 'Config') {
+      showView('settings');
+    } else {
+      state.activeTab = tabName;
+      showView('dashboard');
+    }
+  }
+}
+
+function showView(viewName) {
+  if (viewName === 'dashboard') {
+    DOM.dashboardView.classList.remove('hidden');
+    DOM.dashboardView.classList.add('active');
+    DOM.setupView.classList.add('hidden');
+    DOM.setupView.classList.remove('active');
+    DOM.settingsView.classList.add('hidden');
+    DOM.settingsView.classList.remove('active');
+  } else if (viewName === 'settings') {
+    DOM.settingsView.classList.remove('hidden');
+    DOM.settingsView.classList.add('active');
+    DOM.setupView.classList.add('hidden');
+    DOM.setupView.classList.remove('active');
+    DOM.dashboardView.classList.add('hidden');
+    DOM.dashboardView.classList.remove('active');
+    
+    // Refresh info in settings
+    DOM.settingsNetworkStatus.textContent = ConnectionManager.isOnline() ? 'Online' : 'Offline';
+    if (state.schema) {
+      DOM.settingsTabsList.textContent = Object.keys(state.schema).join(', ');
+    }
+  }
+}
+
+// --- Navigation Handler ---
+function handleNavigation(e) {
+  const btn = e.currentTarget;
+  const targetTab = btn.getAttribute('data-tab');
+  
+  DOM.navItems.forEach(item => item.classList.remove('active'));
+  btn.classList.add('active');
+  
+  if (targetTab === 'Config') {
+    showView('settings');
+  } else {
+    state.activeTab = targetTab;
+    showView('dashboard');
+    renderActiveForm();
+  }
+}
+
+// --- Dynamic Form Renderer ---
+function renderActiveForm() {
+  const currentTab = state.activeTab;
+  const tabSchema = state.schema[currentTab] || DEFAULT_SCHEMA[currentTab] || { headers: ["Fecha", "Datos", "Notas"], dropdownOptions: {} };
+  
+  DOM.tabCategoryTitle.textContent = `Pestaña Activa`;
+  DOM.activeSheetTitle.textContent = currentTab;
+  DOM.fieldsCountBadge.textContent = `${tabSchema.headers.length} campos`;
+  
+  DOM.fieldsContainer.innerHTML = '';
+  state.activeComboboxes = {}; // Clear old references
+  
+  // Render fields based on headers
+  tabSchema.headers.forEach(header => {
+    const fieldGroup = document.createElement('div');
+    fieldGroup.className = 'input-group';
+    
+    const label = document.createElement('label');
+    label.setAttribute('for', `field-${header}`);
+    label.textContent = header;
+    fieldGroup.appendChild(label);
+    
+    // Determine the field type and setup matching input constraints
+    const dropdownOptions = tabSchema.dropdownOptions ? tabSchema.dropdownOptions[header] : null;
+    const isOpenDropdown = ["Cliente", "Responsable", "Instructor", "Tipo"].includes(header);
+    
+    if (isOpenDropdown) {
+      // 1. OPEN DROPDOWN: Autocomplete Combobox
+      const comboboxWrapper = document.createElement('div');
+      comboboxWrapper.id = `combobox-${header}`;
+      fieldGroup.appendChild(comboboxWrapper);
+      DOM.fieldsContainer.appendChild(fieldGroup);
+      
+      // Initialize Combobox component
+      const initialOptions = dropdownOptions || (DEFAULT_SCHEMA[currentTab]?.dropdownOptions[header] || []);
+      state.activeComboboxes[header] = new Combobox(comboboxWrapper, {
+        options: initialOptions,
+        placeholder: `Escribe o selecciona un ${header.toLowerCase()}`,
+        id: `field-${header}`,
+        name: header,
+        required: true,
+        value: ''
+      });
+      
+    } else if (dropdownOptions && !isOpenDropdown) {
+      // 2. CLOSED DROPDOWN: Simple HTML Select dropdown
+      const select = document.createElement('select');
+      select.id = `field-${header}`;
+      select.name = header;
+      select.required = true;
+      
+      const defaultOpt = document.createElement('option');
+      defaultOpt.value = '';
+      defaultOpt.textContent = `-- Selecciona un ${header.toLowerCase()} --`;
+      select.appendChild(defaultOpt);
+      
+      dropdownOptions.forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt;
+        o.textContent = opt;
+        select.appendChild(o);
+      });
+      fieldGroup.appendChild(select);
+      DOM.fieldsContainer.appendChild(fieldGroup);
+      
+    } else if (header.toLowerCase() === 'fecha') {
+      // 3. DATE FIELD: Auto fill with current date
+      const input = document.createElement('input');
+      input.type = 'date';
+      input.id = `field-${header}`;
+      input.name = header;
+      input.required = true;
+      
+      // Set default value to today's local date
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      input.value = `${yyyy}-${mm}-${dd}`;
+      
+      fieldGroup.appendChild(input);
+      DOM.fieldsContainer.appendChild(fieldGroup);
+      
+    } else if (header.toLowerCase() === 'notas' || header.toLowerCase() === 'descripción') {
+      // 4. TEXTAREA FIELD
+      const textarea = document.createElement('textarea');
+      textarea.id = `field-${header}`;
+      textarea.name = header;
+      textarea.placeholder = `Ingresa detalles o comentarios sobre ${currentTab.toLowerCase()}...`;
+      
+      fieldGroup.appendChild(textarea);
+      DOM.fieldsContainer.appendChild(fieldGroup);
+      
+    } else if (["presupuesto", "costo", "coste asoc", "horas", "asistentes"].includes(header.toLowerCase())) {
+      // 5. NUMERIC FIELDS: Trigger correct mobile keyboard keypads
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.id = `field-${header}`;
+      input.name = header;
+      input.placeholder = header.toLowerCase().includes('asoc') || header.toLowerCase().includes('cost') || header.toLowerCase().includes('presupuesto') ? '0.00' : '0';
+      input.step = 'any';
+      
+      if (header.toLowerCase() === 'asistentes') {
+        input.inputMode = 'numeric'; // Integer only keypad
+        input.step = '1';
+      } else {
+        input.inputMode = 'decimal'; // Keypad with decimal point
+      }
+      
+      fieldGroup.appendChild(input);
+      DOM.fieldsContainer.appendChild(fieldGroup);
+      
+    } else {
+      // 6. STANDARD TEXT INPUT
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.id = `field-${header}`;
+      input.name = header;
+      input.placeholder = `Ingresa ${header.toLowerCase()}`;
+      
+      fieldGroup.appendChild(input);
+      DOM.fieldsContainer.appendChild(fieldGroup);
+    }
+  });
+  
+  // Re-trigger Lucide Icons
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
+}
+
+// --- Submit Handler ---
+async function handleFormSubmit(e) {
+  e.preventDefault();
+  
+  const currentTab = state.activeTab;
+  const tabSchema = state.schema[currentTab] || DEFAULT_SCHEMA[currentTab];
+  const rowData = {};
+  
+  let isValid = true;
+  
+  // Collect data and perform HTML5 validation checks
+  for (const header of tabSchema.headers) {
+    let value = '';
+    
+    if (state.activeComboboxes[header]) {
+      value = state.activeComboboxes[header].getValue();
+      const comboboxInput = document.getElementById(`field-${header}`);
+      
+      // Perform validation check on combobox
+      if (state.activeComboboxes[header].required && !value) {
+        isValid = false;
+        comboboxInput.style.borderColor = 'var(--danger)';
+        comboboxInput.focus();
+      } else {
+        comboboxInput.style.borderColor = '';
+      }
+    } else {
+      const el = document.getElementById(`field-${header}`);
+      if (el) {
+        value = el.value.trim();
+        if (el.required && !value) {
+          isValid = false;
+          el.style.borderColor = 'var(--danger)';
+          el.focus();
+        } else {
+          el.style.borderColor = '';
+        }
+      }
+    }
+    
+    rowData[header] = value;
+  }
+  
+  if (!isValid) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Campos incompletos',
+      text: 'Por favor, rellena todos los campos requeridos para guardar el registro.',
+      confirmButtonColor: 'var(--primary)'
+    });
     return;
   }
-
-  // Pre-fill input
-  setConnectionUrlInput(savedUrl);
-  updateFooterInfo(savedUrl);
-
-  const savedStructure = getSheetsStructure();
-
-  if (isOnline()) {
-    try {
-      // Fetch latest sheets structure to keep it fresh
-      const sheets = await testConnection(savedUrl);
-      saveSheetsStructure(sheets);
-      renderTabs(sheets);
-      showView('dashboard');
-    } catch (error) {
-      console.warn('Could not refresh sheets structure on startup:', error);
-      
-      // Fallback to cache if request fails
-      if (savedStructure) {
-        renderTabs(savedStructure);
-        showView('dashboard');
-        showToast('warning', 'Mostrando estructura guardada (sin refrescar)');
-      } else {
-        // Clear corrupt connection URL and force setup
-        showView('setup');
-        showAlert('error', 'Error de Conexión', 'No se pudo conectar con el script y no hay estructura guardada. Verifica la URL.');
+  
+  const displayTitleKey = StorageManager.getDisplayTitleKey(currentTab);
+  const logTitle = rowData[displayTitleKey] || `Fila en ${currentTab}`;
+  
+  // Check network connection
+  if (ConnectionManager.isOnline() && state.scriptUrl) {
+    // Show spinner loader dialog
+    Swal.fire({
+      title: 'Guardando registro...',
+      text: 'Enviando los datos a Google Sheets.',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
       }
-    } finally {
-      hideSplashScreen(); // Hide loading screen
+    });
+    
+    const result = await ConnectionManager.sendRow(state.scriptUrl, currentTab, rowData);
+    
+    Swal.close();
+    
+    if (result.success) {
+      StorageManager.addLog(currentTab, logTitle, 'online');
+      
+      Swal.fire({
+        icon: 'success',
+        title: '¡Guardado con éxito!',
+        text: result.message || 'El registro se guardó en Google Sheets.',
+        timer: 2000,
+        timerProgressBar: true,
+        showConfirmButton: false
+      });
+      
+      resetActiveForm();
+      
+      // Fetch schema in the background to capture any new unique dropdown options
+      refreshSchemaSilently();
+    } else {
+      // Server returned error, cache local
+      saveOfflineAndAlert(currentTab, rowData, logTitle, result.error);
     }
   } else {
-    // Offline startup fallback to local cache
-    if (savedStructure) {
-      renderTabs(savedStructure);
-      showView('dashboard');
-      showToast('info', 'Iniciado en modo sin conexión');
-    } else {
-      showView('setup');
-      showAlert('warning', 'Sin Conexión', 'Necesitas internet la primera vez para configurar la hoja de cálculo.');
-    }
-    hideSplashScreen(); // Hide loading screen
+    // Offline mode: cache local
+    saveOfflineAndAlert(currentTab, rowData, logTitle);
   }
 }
 
-/**
- * Handle new connection setup
- * @param {string} url The script web app URL
- */
-async function handleConnect(url) {
-  if (!url) {
-    showAlert('warning', 'Campos vacíos', 'Por favor ingresa una URL válida.');
-    return;
+function saveOfflineAndAlert(tabName, data, logTitle, errorMsg = '') {
+  StorageManager.addToQueue(tabName, data);
+  
+  let subtitle = 'Tu dispositivo está sin conexión.';
+  if (errorMsg) {
+    subtitle = 'Hubo un inconveniente al conectar con el servidor.';
+    console.warn('API connection failed:', errorMsg);
   }
-
-  if (!url.startsWith('https://script.google.com/')) {
-    showAlert('error', 'URL no válida', 'La URL debe empezar por https://script.google.com/');
-    return;
-  }
-
-  if (!isOnline()) {
-    showAlert('error', 'Sin Internet', 'Debes estar conectado a internet para verificar la conexión inicial.');
-    return;
-  }
-
-  showLoading('Conectando con Google Sheets...');
-
-  try {
-    const sheets = await testConnection(url);
-    
-    // Save URL and structure
-    saveScriptUrl(url);
-    saveSheetsStructure(sheets);
-    
-    // Setup UI
-    renderTabs(sheets);
-    updateFooterInfo(url);
-    showView('dashboard');
-    
-    closeAlert();
-    showAlert('success', '¡Conectado con éxito!', `Se importaron ${sheets.length} pestañas de la hoja de cálculo.`);
-    
-    // Check if there's anything to sync
-    handleSyncQueue(true);
-
-  } catch (error) {
-    closeAlert();
-    showAlert('error', 'Error de conexión', `No se pudo conectar al script. Detalle: ${error.message}`);
-  }
-}
-
-/**
- * Disconnects app and clears cached sheet structure
- */
-function handleDisconnect() {
+  
   Swal.fire({
-    title: '¿Desconectar hoja?',
-    text: 'Se borrará la configuración y el historial local de envíos. La cola de envíos offline pendientes se conservará.',
+    icon: 'info',
+    title: 'Registro guardado localmente',
+    text: `${subtitle} El registro se guardó en la cola y se enviará automáticamente cuando recuperes la señal.`,
+    confirmButtonColor: 'var(--warning)',
+    confirmButtonText: 'Entendido'
+  });
+  
+  resetActiveForm();
+  renderOfflineBanner();
+  renderLogs();
+}
+
+function resetActiveForm() {
+  DOM.dynamicForm.reset();
+  
+  // Re-populate Date input with today's date
+  const dateInputs = DOM.fieldsContainer.querySelectorAll('input[type="date"]');
+  dateInputs.forEach(input => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    input.value = `${yyyy}-${mm}-${dd}`;
+  });
+  
+  // Reset combobox elements
+  Object.keys(state.activeComboboxes).forEach(key => {
+    state.activeComboboxes[key].setValue('');
+  });
+}
+
+// --- Sync Offline Queue ---
+async function syncOfflineQueue() {
+  if (state.isSyncing) return;
+  
+  const queue = StorageManager.getQueue();
+  if (queue.length === 0) return;
+  
+  if (!ConnectionManager.isOnline() || !state.scriptUrl) {
+    renderOfflineBanner();
+    return;
+  }
+  
+  state.isSyncing = true;
+  DOM.syncNowBtn.disabled = true;
+  DOM.syncNowBtn.innerHTML = '<i class="spin" data-lucide="refresh-cw"></i> Sincronizando...';
+  if (window.lucide) window.lucide.createIcons();
+  
+  console.log(`Starting synchronization of ${queue.length} items...`);
+  
+  // Process queue item-by-item to guarantee order
+  for (const item of queue) {
+    const result = await ConnectionManager.sendRow(state.scriptUrl, item.tabName, item.data);
+    if (result.success) {
+      StorageManager.removeFromQueue(item.id);
+      StorageManager.updateLogStatus(item.id, 'online');
+    } else {
+      console.error(`Failed syncing item ${item.id}:`, result.error);
+      // Stop sync queue processing if error is server-wide to avoid repeat requests
+      break;
+    }
+  }
+  
+  state.isSyncing = false;
+  DOM.syncNowBtn.disabled = false;
+  DOM.syncNowBtn.innerHTML = '<i data-lucide="refresh-cw"></i> Sincronizar';
+  if (window.lucide) window.lucide.createIcons();
+  
+  renderOfflineBanner();
+  renderLogs();
+  
+  // Refresh schema to sync new dropdown unique lists
+  refreshSchemaSilently();
+}
+
+function renderOfflineBanner() {
+  const queue = StorageManager.getQueue();
+  if (queue.length > 0) {
+    DOM.offlineCount.textContent = queue.length;
+    DOM.offlineSyncCard.classList.remove('hidden');
+  } else {
+    DOM.offlineSyncCard.classList.add('hidden');
+  }
+}
+
+// --- Render History Logs ---
+function renderLogs() {
+  const logs = StorageManager.getLogs();
+  DOM.recentLogsList.innerHTML = '';
+  
+  if (logs.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'empty-state-text';
+    empty.textContent = 'No hay envíos recientes registrados en este navegador.';
+    DOM.recentLogsList.appendChild(empty);
+    return;
+  }
+  
+  logs.forEach(log => {
+    const item = document.createElement('div');
+    item.className = 'history-item';
+    
+    const left = document.createElement('div');
+    left.className = 'history-item-left';
+    
+    const title = document.createElement('div');
+    title.className = 'history-item-title';
+    title.textContent = log.title;
+    left.appendChild(title);
+    
+    const sub = document.createElement('div');
+    sub.className = 'history-item-sub';
+    
+    // Format timestamp
+    const date = new Date(log.timestamp);
+    const timeStr = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    const dateStr = `${date.getDate()}/${date.getMonth()+1}`;
+    sub.textContent = `${log.tabName} • ${dateStr} ${timeStr}`;
+    left.appendChild(sub);
+    
+    item.appendChild(left);
+    
+    const badge = document.createElement('span');
+    badge.className = `history-item-badge ${log.status}`;
+    badge.textContent = log.status === 'online' ? 'Enviado' : 'Guardado';
+    item.appendChild(badge);
+    
+    DOM.recentLogsList.appendChild(item);
+  });
+}
+
+function clearLogsHistory() {
+  Swal.fire({
+    title: '¿Borrar historial?',
+    text: 'Se limpiará la lista visual de envíos recientes en este dispositivo. La hoja de cálculo de Google no sufrirá cambios.',
     icon: 'warning',
     showCancelButton: true,
+    confirmButtonColor: 'var(--danger)',
+    cancelButtonColor: 'var(--text-muted)',
+    confirmButtonText: 'Sí, borrar',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      StorageManager.clearLogs();
+      renderLogs();
+    }
+  });
+}
+
+// --- Sync Connection URL & Schema ---
+async function handleConnect() {
+  const url = DOM.scriptUrlInput.value.trim();
+  if (!url) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Enlace requerido',
+      text: 'Debes proporcionar una URL válida de Apps Script.',
+      confirmButtonColor: 'var(--primary)'
+    });
+    return;
+  }
+
+  Swal.fire({
+    title: 'Conectando con Google Sheets...',
+    text: 'Sincronizando pestañas y campos de la hoja de cálculo.',
+    allowOutsideClick: false,
+    didOpen: () => {
+      Swal.showLoading();
+    }
+  });
+
+  const result = await ConnectionManager.fetchSchema(url);
+  Swal.close();
+
+  if (result.success) {
+    state.scriptUrl = url;
+    state.schema = result.data;
+    
+    // Save to storage
+    StorageManager.setScriptUrl(url);
+    StorageManager.setSchema(result.data);
+    
+    DOM.settingsUrlInput.value = url;
+    
+    Swal.fire({
+      icon: 'success',
+      title: '¡Conexión establecida!',
+      text: 'Se han sincronizado correctamente todas las pestañas.',
+      timer: 2000,
+      showConfirmButton: false
+    });
+    
+    updateViewVisibility();
+    renderActiveForm();
+    
+    // Sync any pending items in queue now
+    syncOfflineQueue();
+  } else {
+    Swal.fire({
+      icon: 'error',
+      title: 'Fallo de conexión',
+      text: result.error,
+      confirmButtonColor: 'var(--primary)'
+    });
+  }
+}
+
+async function refreshSchemaSilently() {
+  if (!state.scriptUrl || !ConnectionManager.isOnline()) return;
+  const result = await ConnectionManager.fetchSchema(state.scriptUrl);
+  if (result.success) {
+    state.schema = result.data;
+    StorageManager.setSchema(result.data);
+    renderActiveForm();
+  }
+}
+
+function handleDisconnect() {
+  Swal.fire({
+    title: '¿Desconectar aplicación?',
+    text: 'Se borrará la URL y el esquema guardados. No perderás los envíos ya realizados ni la cola offline, pero deberás reconectar para volver a sincronizar.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: 'var(--danger)',
+    cancelButtonColor: 'var(--text-muted)',
     confirmButtonText: 'Sí, desconectar',
     cancelButtonText: 'Cancelar'
   }).then((result) => {
     if (result.isConfirmed) {
-      clearConnection();
-      showView('setup');
-      updateFooterInfo(null);
-      showToast('success', 'Desconectado de Google Sheets');
+      StorageManager.clearAllConnection();
+      loadConnectionState();
+      renderActiveForm();
+      
+      Swal.fire({
+        icon: 'success',
+        title: 'Desconectado',
+        text: 'La conexión se ha eliminado.',
+        timer: 1500,
+        showConfirmButton: false
+      });
     }
   });
 }
 
-/**
- * Handles submission of dynamic forms
- */
-async function handleFormSubmit() {
-  if (!validateForm()) return;
-
-  const url = getScriptUrl();
-  const activeTab = getActiveTab();
-  const data = getFormData();
-
-  if (!url || !activeTab) {
-    showAlert('error', 'Error del Sistema', 'No hay conexión activa.');
+async function handleSaveSettings() {
+  const url = DOM.settingsUrlInput.value.trim();
+  if (!url) {
+    handleDisconnect();
     return;
   }
 
-  if (isOnline()) {
-    showLoading('Guardando registro...');
+  Swal.fire({
+    title: 'Sincronizando cambios...',
+    allowOutsideClick: false,
+    didOpen: () => {
+      Swal.showLoading();
+    }
+  });
+
+  const result = await ConnectionManager.fetchSchema(url);
+  Swal.close();
+
+  if (result.success) {
+    state.scriptUrl = url;
+    state.schema = result.data;
     
-    try {
-      await sendRowData(url, activeTab, data);
-      
-      // Update history and UI
-      addToHistory(activeTab, data, 'synced');
-      updateCachedUniqueValues(activeTab, data);
-      refreshActiveForm();
-      
-      closeAlert();
-      showToast('success', '¡Registro guardado con éxito!');
-      renderHistory();
-      
-    } catch (error) {
-      closeAlert();
-      console.error(error);
-      
-      Swal.fire({
-        title: 'Error de envío',
-        text: 'No se pudo comunicar con Google Sheets. ¿Quieres guardarlo localmente para enviarlo más tarde?',
-        icon: 'error',
-        showCancelButton: true,
-        confirmButtonText: 'Guardar localmente',
-        cancelButtonText: 'Descartar'
-      }).then((result) => {
-        if (result.isConfirmed) {
-          saveSubmissionOffline(activeTab, data);
-        }
-      });
-    }
+    StorageManager.setScriptUrl(url);
+    StorageManager.setSchema(result.data);
+    
+    DOM.scriptUrlInput.value = url;
+    
+    Swal.fire({
+      icon: 'success',
+      title: 'Configuración guardada',
+      text: 'Se actualizó la conexión con el servidor.',
+      timer: 1500,
+      showConfirmButton: false
+    });
+    
+    // Switch navigation back to active tab
+    const firstTab = DOM.navbar.querySelector('[data-tab="Obras"]');
+    if (firstTab) firstTab.click();
   } else {
-    saveSubmissionOffline(activeTab, data);
+    Swal.fire({
+      icon: 'error',
+      title: 'Fallo al guardar',
+      text: result.error,
+      confirmButtonColor: 'var(--primary)'
+    });
   }
 }
 
-/**
- * Helper to queue submission offline
- */
-function saveSubmissionOffline(activeTab, data) {
-  addToQueue(activeTab, data);
-  updateCachedUniqueValues(activeTab, data);
-  refreshActiveForm();
-  showToast('warning', 'Registro guardado localmente (Offline)');
-  renderHistory();
-}
-
-/**
- * Synchronizes queued offline submissions in order
- * @param {boolean} silent If true, won't show alert dialogs unless there is an error
- */
-async function handleSyncQueue(silent = false) {
-  const queue = getQueue();
-  const url = getScriptUrl();
+// --- Network connection listeners ---
+function checkNetworkStatus() {
+  const isOnline = ConnectionManager.isOnline();
   
-  if (queue.length === 0) {
-    if (!silent) showToast('info', 'No hay registros pendientes de sincronizar.');
-    return;
+  if (isOnline) {
+    DOM.connectionStatus.className = 'status-indicator online';
+    DOM.connectionStatusText.textContent = 'Online';
+    // Auto-trigger synchronization of cached queue items
+    syncOfflineQueue();
+  } else {
+    DOM.connectionStatus.className = 'status-indicator offline';
+    DOM.connectionStatusText.textContent = 'Offline';
   }
+}
 
-  if (!url) return;
+// --- Bind Event Listeners ---
+function bindEvents() {
+  // Theme Toggle
+  DOM.toggleThemeBtn.addEventListener('click', toggleTheme);
+  
+  // Navigation tabs
+  DOM.navItems.forEach(item => {
+    item.addEventListener('click', handleNavigation);
+  });
+  
+  // Setup Actions
+  DOM.connectBtn.addEventListener('click', handleConnect);
+  DOM.openGuideBtn.addEventListener('click', () => toggleModal(true));
+  
+  // Settings Actions
+  DOM.saveSettingsBtn.addEventListener('click', handleSaveSettings);
+  DOM.disconnectBtn.addEventListener('click', handleDisconnect);
+  DOM.openGuideBtnSettings.addEventListener('click', () => toggleModal(true));
+  
+  // Dashboard Actions
+  DOM.dynamicForm.addEventListener('submit', handleFormSubmit);
+  DOM.syncNowBtn.addEventListener('click', syncOfflineQueue);
+  DOM.clearHistoryBtn.addEventListener('click', clearLogsHistory);
+  
+  // Modal Actions
+  DOM.closeGuideBtn.addEventListener('click', () => toggleModal(false));
+  DOM.closeGuideBtnBottom.addEventListener('click', () => toggleModal(false));
+  DOM.guideModal.addEventListener('click', (e) => {
+    if (e.target === DOM.guideModal) toggleModal(false);
+  });
+  
+  // Network connection changes
+  window.addEventListener('online', checkNetworkStatus);
+  window.addEventListener('offline', checkNetworkStatus);
+}
 
-  if (!isOnline()) {
-    if (!silent) showAlert('warning', 'Sin conexión', 'Debes estar conectado a internet para sincronizar.');
-    return;
-  }
-
-  if (isSyncing) return;
-  isSyncing = true;
-
-  if (!silent) showLoading(`Sincronizando ${queue.length} registros...`);
-
-  let successCount = 0;
-  let failCount = 0;
-
-  for (const item of queue) {
-    try {
-      await sendRowData(url, item.sheetName, item.rowData);
-      addToHistory(item.sheetName, item.rowData, 'synced', item.id);
-      updateCachedUniqueValues(item.sheetName, item.rowData);
-      removeFromQueue(item.id);
-      successCount++;
-    } catch (error) {
-      console.error(`Failed to sync item ${item.id}:`, error);
-      failCount++;
-      break;
-    }
-  }
-
-  isSyncing = false;
-  closeAlert();
-  renderHistory();
-  if (successCount > 0) {
-    refreshActiveForm();
-  }
-
-  if (successCount > 0) {
-    if (failCount > 0) {
-      showAlert('warning', 'Sincronización parcial', `Se enviaron ${successCount} registros, pero falló la conexión al procesar el resto.`);
-    } else {
-      showAlert('success', '¡Sincronizado!', `Se subieron con éxito los ${successCount} registros pendientes.`);
-    }
-  } else if (failCount > 0) {
-    if (!silent) showAlert('error', 'Sincronización fallida', 'Ocurrió un error al intentar enviar los registros pendientes. Reintenta más tarde.');
+function toggleModal(show) {
+  if (show) {
+    DOM.guideModal.classList.add('open');
+  } else {
+    DOM.guideModal.classList.remove('open');
   }
 }

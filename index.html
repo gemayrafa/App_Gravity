@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Sheets Entry Form</title>
+  <title>Sheets Entry Multi-Form</title>
   <!-- Google Fonts: Outfit -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,16 +17,16 @@
 </head>
 <body>
 
-  <!-- App Wrapper resembling a native mobile container -->
+  <!-- App Wrapper for mobile native container feel -->
   <div class="app-container">
     
     <!-- Splash Screen (Visible by default on load) -->
     <div id="splash-screen" class="splash-screen">
       <div class="splash-content">
         <div class="splash-logo">
-          <i data-lucide="database"></i>
+          <i data-lucide="file-spreadsheet"></i>
         </div>
-        <h2>SheetsForms</h2>
+        <h2>SheetsForms Pro</h2>
         <div class="splash-spinner"></div>
       </div>
     </div>
@@ -35,13 +35,13 @@
     <header class="app-header">
       <div class="header-left">
         <div class="logo-icon">
-          <i data-lucide="database"></i>
+          <i data-lucide="file-spreadsheet"></i>
         </div>
         <div class="logo-text">
-          <h1>SheetsForms</h1>
+          <h1>SheetsForms Pro</h1>
           <span class="status-indicator online" id="connection-status">
             <span class="status-dot"></span>
-            <span class="status-text" id="connection-status-text">Online</span>
+            <span class="status-text" id="connection-status-text">Cargando...</span>
           </span>
         </div>
       </div>
@@ -50,33 +50,30 @@
           <i data-lucide="sun" class="theme-icon-light"></i>
           <i data-lucide="moon" class="theme-icon-dark"></i>
         </button>
-        <button id="open-settings-btn" class="icon-btn" title="Configurar conexión">
-          <i data-lucide="settings"></i>
-        </button>
       </div>
     </header>
 
     <!-- Main Content Area -->
     <main class="app-content">
       
-      <!-- VIEW 1: Connection Setup Screen (Visible when not connected - 'active' removed) -->
-      <section id="setup-view" class="view-section">
+      <!-- VIEW 1: Connection Setup Screen (Visible when script URL is missing) -->
+      <section id="setup-view" class="view-section hidden">
         <div class="welcome-card card animate-fade-in">
           <div class="welcome-header">
             <div class="welcome-icon">
               <i data-lucide="link-2"></i>
             </div>
             <h2>Conectar con Google Sheets</h2>
-            <p>Ingresa la URL de la aplicación web de Google Apps Script para comenzar a capturar datos.</p>
+            <p>Ingresa la URL del Web App de Apps Script para activar la recopilación de datos.</p>
           </div>
 
           <div class="input-group">
-            <label for="script-url-input">URL del Web App de Apps Script</label>
+            <label for="script-url-input">URL de Apps Script Web App</label>
             <div class="url-input-wrapper">
               <i data-lucide="globe" class="input-icon"></i>
               <input type="url" id="script-url-input" placeholder="https://script.google.com/macros/s/.../exec" required autocomplete="off">
             </div>
-            <span class="input-help">Debes implementar el script en tu hoja de cálculo como Aplicación Web.</span>
+            <span class="input-help">Debes implementar el script proporcionado en tu hoja como Aplicación Web.</span>
           </div>
 
           <div class="action-buttons">
@@ -90,51 +87,41 @@
         </div>
       </section>
 
-      <!-- VIEW 2: Form Dashboard Screen (Visible when connected) -->
-      <section id="dashboard-view" class="view-section">
+      <!-- VIEW 2: Form Dashboard Screen (Visible when script URL exists) -->
+      <section id="dashboard-view" class="view-section active">
         
-        <!-- Tab Navigation (Tabs from Sheets) -->
-        <div class="sheet-tabs-container">
-          <div class="sheet-tabs-label">
-            <i data-lucide="layers"></i> Pestañas del Libro
-          </div>
-          <div class="sheet-tabs" id="sheet-tabs-list">
-            <!-- Dynamic Sheet Tabs loaded via JS -->
-            <div class="tab-skeleton"></div>
-            <div class="tab-skeleton"></div>
-            <div class="tab-skeleton"></div>
-          </div>
-        </div>
-
-        <!-- Form Area -->
-        <div class="form-container-card card">
+        <!-- Form Container -->
+        <div class="form-container-card card animate-fade-in">
           <div class="form-card-header">
-            <h2 id="active-sheet-title">Formulario</h2>
+            <div>
+              <span class="tab-category-badge" id="tab-category-title">Pestaña</span>
+              <h2 id="active-sheet-title">Formulario</h2>
+            </div>
             <span class="badge" id="fields-count-badge">0 campos</span>
           </div>
           
           <!-- Dynamic Form -->
-          <form id="dynamic-entry-form" novalidate>
+          <form id="dynamic-entry-form" novalidate autocomplete="off">
             <div id="dynamic-fields-container">
-              <!-- Dynamically generated inputs will go here -->
+              <!-- Inputs will be rendered dynamically by JS -->
             </div>
             
             <!-- Submit Button -->
             <button type="submit" id="submit-form-btn" class="btn btn-primary btn-submit">
-              <i data-lucide="send"></i> Guardar Registro
+              <i data-lucide="save"></i> Guardar Registro
             </button>
           </form>
         </div>
 
-        <!-- Offline Queue Banner (Only shown if offline items exist) -->
+        <!-- Offline Queue Banner (Hidden by default, shown if local items exist) -->
         <div id="offline-sync-card" class="card sync-card hidden">
           <div class="sync-info">
             <div class="sync-icon-pulse">
               <i data-lucide="wifi-off"></i>
             </div>
             <div>
-              <h3>Registros sin sincronizar</h3>
-              <p>Tienes <strong id="offline-count">0</strong> envíos pendientes guardados localmente.</p>
+              <h3>Envíos sin sincronizar</h3>
+              <p>Tienes <strong id="offline-count">0</strong> registros pendientes en este dispositivo.</p>
             </div>
           </div>
           <button id="sync-now-btn" class="btn btn-sync">
@@ -145,31 +132,91 @@
         <!-- Recent Logs / History -->
         <div class="history-card card">
           <div class="history-header">
-            <h3><i data-lucide="history"></i> Envíos Recientes (Este dispositivo)</h3>
-            <button id="clear-history-btn" class="text-btn">Borrar</button>
+            <h3><i data-lucide="history"></i> Envíos Recientes</h3>
+            <button id="clear-history-btn" class="text-btn">Limpiar</button>
           </div>
           <div class="history-list" id="recent-logs-list">
             <!-- Dynamic logs list -->
-            <p class="empty-state-text">No has realizado envíos recientes.</p>
+            <p class="empty-state-text">No hay envíos recientes registrados en este navegador.</p>
           </div>
         </div>
 
       </section>
+
+      <!-- VIEW 3: Settings Panel (Accessible via bottom nav) -->
+      <section id="settings-view" class="view-section hidden">
+        <div class="settings-card card animate-fade-in">
+          <div class="settings-header">
+            <div class="settings-icon-wrapper">
+              <i data-lucide="settings"></i>
+            </div>
+            <h2>Configuración del Sistema</h2>
+            <p>Gestiona la conexión con tu hoja de cálculo.</p>
+          </div>
+
+          <div class="input-group">
+            <label for="settings-url-input">URL de la Aplicación Web</label>
+            <div class="url-input-wrapper">
+              <i data-lucide="globe" class="input-icon"></i>
+              <input type="url" id="settings-url-input" placeholder="https://script.google.com/macros/s/.../exec">
+            </div>
+          </div>
+
+          <div class="settings-actions">
+            <button id="save-settings-btn" class="btn btn-primary">
+              <i data-lucide="check"></i> Guardar Cambios
+            </button>
+            <button id="disconnect-btn" class="btn btn-danger">
+              <i data-lucide="log-out"></i> Desconectar Cuenta
+            </button>
+          </div>
+
+          <hr class="settings-divider">
+
+          <div class="info-block">
+            <h3>Información del Proyecto</h3>
+            <div class="info-row">
+              <span class="info-label">Estado de Red:</span>
+              <span class="info-value" id="settings-network-status">Online</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Pestañas Sincronizadas:</span>
+              <span class="info-value" id="settings-tabs-list">Ninguna</span>
+            </div>
+            <button id="open-guide-btn-settings" class="btn btn-secondary btn-full">
+              <i data-lucide="help-circle"></i> Ver Guía de Apps Script
+            </button>
+          </div>
+        </div>
+      </section>
       
     </main>
 
-    <!-- Bottom Navigation -->
-    <footer class="app-footer" id="app-footer-info">
-      <div class="footer-info">
-        <i data-lucide="file-spreadsheet"></i>
-        <span id="footer-sheet-name">Sin conectar</span>
-      </div>
-      <button id="disconnect-btn" class="disconnect-link hidden">
-        <i data-lucide="log-out"></i> Desconectar
+    <!-- Bottom Navigation Bar (Thumb-friendly navigation) -->
+    <nav class="app-navbar">
+      <button class="nav-item active" data-tab="Obras">
+        <i data-lucide="building-2"></i>
+        <span>Obras</span>
       </button>
-    </footer>
+      <button class="nav-item" data-tab="Iniciativas">
+        <i data-lucide="lightbulb"></i>
+        <span>Iniciativas</span>
+      </button>
+      <button class="nav-item" data-tab="Formaciones">
+        <i data-lucide="graduation-cap"></i>
+        <span>Formación</span>
+      </button>
+      <button class="nav-item" data-tab="Actividad">
+        <i data-lucide="activity"></i>
+        <span>Actividad</span>
+      </button>
+      <button class="nav-item" data-tab="Config">
+        <i data-lucide="settings"></i>
+        <span>Config</span>
+      </button>
+    </nav>
 
-    <!-- MODAL: Step by Step Guide & Code -->
+    <!-- MODAL: Step by Step Guide & Apps Script Code -->
     <div id="guide-modal" class="modal-overlay">
       <div class="modal-content animate-slide-up">
         <div class="modal-header">
@@ -179,66 +226,51 @@
           </button>
         </div>
         <div class="modal-body">
-          <p class="modal-intro">Sigue estos pasos para conectar tu Google Sheets con esta aplicación en menos de 2 minutos:</p>
+          <p class="modal-intro">Sigue estos sencillos pasos para conectar tu Google Sheets con esta aplicación:</p>
           
           <div class="steps-list">
             <div class="step-item">
               <div class="step-number">1</div>
               <div class="step-text">
-                <p><strong>Abre tu Google Sheets</strong></p>
-                <p>Asegúrate de que la primera fila de cada pestaña contenga los títulos de tus columnas (ej. <i>Nombre, Fecha, Teléfono</i>).</p>
+                <p><strong>Crea la Hoja de Cálculo</strong></p>
+                <p>Crea una nueva hoja de cálculo en tu Google Drive. Las pestañas (<code>Obras</code>, <code>Iniciativas</code>, <code>Formaciones</code>, <code>Actividad</code>) y columnas se crearán automáticamente al realizar los primeros envíos.</p>
               </div>
             </div>
 
             <div class="step-item">
               <div class="step-number">2</div>
               <div class="step-text">
-                <p><strong>Abre el editor de Scripts</strong></p>
-                <p>En el menú superior, haz clic en <strong>Extensiones</strong> ➔ <strong>Apps Script</strong>.</p>
+                <p><strong>Abre Apps Script</strong></p>
+                <p>Dentro de tu hoja de cálculo, haz clic en el menú superior <strong>Extensiones</strong> ➔ <strong>Apps Script</strong>.</p>
               </div>
             </div>
 
             <div class="step-item">
               <div class="step-number">3</div>
               <div class="step-text">
-                <p><strong>Pega el Código del Puente</strong></p>
-                <p>Borra cualquier código existente en el archivo `Código.gs` y pega el siguiente script:</p>
-                
-                <div class="code-container">
-                  <pre><code id="script-code-block"></code></pre>
-                  <button id="copy-code-btn" class="btn btn-small">
-                    <i data-lucide="copy"></i> Copiar Código
-                  </button>
-                </div>
+                <p><strong>Pega el Código del Script</strong></p>
+                <p>Reemplaza todo el contenido en el editor con el código puente. Puedes encontrar el archivo <code>google_apps_script.gs</code> en el directorio raíz de este proyecto.</p>
               </div>
             </div>
 
             <div class="step-item">
               <div class="step-number">4</div>
               <div class="step-text">
-                <p><strong>Guarda e Implementa</strong></p>
-                <p>Haz clic en el icono de guardar (disco) ➔ <strong>Implementar</strong> ➔ <strong>Nueva implementación</strong>.</p>
+                <p><strong>Implementa como Aplicación Web</strong></p>
+                <p>Haz clic en el botón azul <strong>Implementar</strong> ➔ <strong>Nueva implementación</strong>. Selecciona el tipo de engranaje <strong>Aplicación web</strong> y configura:</p>
+                <ul>
+                  <li><strong>Ejecutar como:</strong> Mismo usuario (tú)</li>
+                  <li><strong>Quién tiene acceso:</strong> Cualquiera</li>
+                </ul>
+                <p>Haz clic en <strong>Implementar</strong>, autoriza los permisos y copia la URL generada que termina en <code>/exec</code>.</p>
               </div>
             </div>
 
             <div class="step-item">
               <div class="step-number">5</div>
               <div class="step-text">
-                <p><strong>Configura la Aplicación Web</strong></p>
-                <p>Selecciona el tipo <strong>Aplicación web</strong> (icono de engranaje). Configura:</p>
-                <ul>
-                  <li><strong>Ejecutar como:</strong> Mismo usuario (tú)</li>
-                  <li><strong>Quién tiene acceso:</strong> Cualquiera</li>
-                </ul>
-                <p>Haz clic en **Implementar**. Google te pedirá autorizar permisos (haz clic en <i>Configuración avanzada</i> y luego en <i>Ir a Proyecto (no seguro)</i> para confirmar tus propios permisos).</p>
-              </div>
-            </div>
-
-            <div class="step-item">
-              <div class="step-number">6</div>
-              <div class="step-text">
-                <p><strong>Copia la URL del Web App</strong></p>
-                <p>Copia la URL que termina en <code>/exec</code> y pégala en la pantalla de conexión de esta aplicación.</p>
+                <p><strong>Pega la URL en la Aplicación</strong></p>
+                <p>Pega la URL copiada en la pestaña de configuración de esta app y pulsa en "Conectar y Sincronizar".</p>
               </div>
             </div>
           </div>
@@ -253,7 +285,7 @@
 
   <!-- SweetAlert2 JS -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <!-- Modular JS Files -->
+  <!-- Main Application Script -->
   <script type="module" src="js/app.js"></script>
 
 </body>

@@ -1,82 +1,100 @@
-// Connection & API Client for Google Apps Script
-
 /**
- * Checks if the browser has internet connectivity
- * @returns {boolean}
+ * MODULE: Connection Manager (connection.js)
+ * Handles API calls to Google Apps Script Web App.
+ * Crucial optimization: Sets Content-Type to 'text/plain' to avoid CORS preflight OPTIONS requests,
+ * which Google Apps Script web apps do not support.
  */
-export function isOnline() {
-  return navigator.onLine;
-}
 
-/**
- * Tests connection with the Google Apps Script URL by fetching the structure
- * @param {string} url The Web App URL
- * @returns {Promise<Object>} The structure of sheets if successful
- */
-export async function testConnection(url) {
-  if (!url) throw new Error('La URL de conexión está vacía.');
-  
-  // Append action parameter to URL for GET
-  const requestUrl = new URL(url);
-  requestUrl.searchParams.set('action', 'getStructure');
-  
-  const response = await fetch(requestUrl.toString(), {
-    method: 'GET',
-    mode: 'cors',
-    redirect: 'follow'
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
-  }
-  
-  const data = await response.json();
-  
-  if (!data.success) {
-    throw new Error(data.error || 'El script devolvió un error desconocido.');
-  }
-  
-  return data.sheets; // Array of { name, headers }
-}
+export const ConnectionManager = {
+  /**
+   * Fetches sheets schema (columns and unique values for open dropdowns)
+   * @param {string} scriptUrl 
+   * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+   */
+  async fetchSchema(scriptUrl) {
+    if (!scriptUrl) return { success: false, error: 'URL del script no especificada' };
+    
+    try {
+      // Append a cache-buster query parameter
+      const urlWithCacheBuster = `${scriptUrl}?_cb=${Date.now()}`;
+      
+      const response = await fetch(urlWithCacheBuster, {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'omit'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      if (result.success) {
+        return { success: true, data: result.data };
+      } else {
+        return { success: false, error: result.error || 'Error desconocido del servidor' };
+      }
+    } catch (error) {
+      console.error('Fetch Schema Error:', error);
+      return { 
+        success: false, 
+        error: 'No se pudo conectar con el script. Verifica que la URL esté correcta y el script esté implementado para permitir acceso a "Cualquiera".'
+      };
+    }
+  },
 
-/**
- * Appends a row of data to a specific sheet
- * @param {string} url The Web App URL
- * @param {string} sheetName Name of the sheet (tab)
- * @param {Object} rowData Keys are headers, values are input entries
- * @returns {Promise<Object>} Success status
- */
-export async function sendRowData(url, sheetName, rowData) {
-  if (!url) throw new Error('No hay una URL de conexión configurada.');
-  
-  const payload = {
-    action: 'appendRow',
-    sheetName: sheetName,
-    rowData: rowData
-  };
-  
-  // CRITICAL: We use 'text/plain' Content-Type to prevent the browser from sending
-  // a CORS preflight OPTIONS request, which Google Apps Script Web Apps do not support.
-  // Apps Script parses the raw JSON string in e.postData.contents.
-  const response = await fetch(url, {
-    method: 'POST',
-    mode: 'cors',
-    redirect: 'follow',
-    headers: {
-      'Content-Type': 'text/plain;charset=utf-8'
-    },
-    body: JSON.stringify(payload)
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Error HTTP: ${response.status} ${response.statusText}`);
+  /**
+   * Appends a new row to the specified Google Sheet tab
+   * @param {string} scriptUrl 
+   * @param {string} tabName 
+   * @param {object} rowData 
+   * @returns {Promise<{success: boolean, message?: string, error?: string}>}
+   */
+  async sendRow(scriptUrl, tabName, rowData) {
+    if (!scriptUrl) return { success: false, error: 'URL del script no configurada' };
+    
+    try {
+      const payload = {
+        tabName: tabName,
+        data: rowData
+      };
+
+      // CRITICAL CORS BYPASS: Using 'text/plain' Content-Type avoids triggering the preflight OPTIONS request.
+      // Apps Script receives it and parses the raw text contents as JSON in doPost(e).
+      const response = await fetch(scriptUrl, {
+        method: 'POST',
+        mode: 'cors',
+        credentials: 'omit',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        return { success: true, message: result.message };
+      } else {
+        return { success: false, error: result.error || 'Error al guardar en el servidor' };
+      }
+    } catch (error) {
+      console.error('Send Row Error:', error);
+      return { 
+        success: false, 
+        error: 'Error de red. El registro se guardará en la cola offline y se sincronizará cuando vuelvas a tener conexión.' 
+      };
+    }
+  },
+
+  /**
+   * Fast check to verify if the server is accessible (simple ping)
+   * @returns {boolean}
+   */
+  isOnline() {
+    return navigator.onLine;
   }
-  
-  const data = await response.json();
-  
-  if (!data.success) {
-    throw new Error(data.error || 'Error al insertar fila en la hoja de cálculo.');
-  }
-  
-  return data;
-}
+};
