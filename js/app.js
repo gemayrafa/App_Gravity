@@ -115,6 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Auto-sync on startup if connected
   if (ConnectionManager.isOnline()) {
     setTimeout(syncOfflineQueue, 1500);
+    // Silent schema reload on startup to fetch latest sheet values in the background
+    setTimeout(refreshSchemaSilently, 800);
   }
   
   // Hide splash screen after 600ms

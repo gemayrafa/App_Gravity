@@ -107,6 +107,7 @@ export class Combobox {
     this.isOpen = true;
     this.container.classList.add('open');
     this.activeIndex = -1;
+    this.filteredOptions = [...this.options]; // Reset list to show all options initially
     this.renderOptions(this.input.value);
   }
 
