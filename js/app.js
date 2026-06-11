@@ -631,11 +631,12 @@ async function handleConnect() {
 
   if (result.success) {
     state.scriptUrl = url;
-    state.schema = result.data;
+    const cleanSchema = result.data.sheets || result.data;
+    state.schema = cleanSchema;
     
     // Save to storage
     StorageManager.setScriptUrl(url);
-    StorageManager.setSchema(result.data);
+    StorageManager.setSchema(cleanSchema);
     
     DOM.settingsUrlInput.value = url;
     
@@ -667,8 +668,9 @@ async function refreshSchemaSilently() {
   const result = await ConnectionManager.fetchSchema(state.scriptUrl);
   if (result.success) {
     console.log("Esquema descargado con éxito del servidor:", result.data);
-    state.schema = result.data;
-    StorageManager.setSchema(result.data);
+    const cleanSchema = result.data.sheets || result.data;
+    state.schema = cleanSchema;
+    StorageManager.setSchema(cleanSchema);
     renderActiveForm();
   } else {
     console.warn("Fallo al descargar el esquema:", result.error);
@@ -722,10 +724,11 @@ async function handleSaveSettings() {
 
   if (result.success) {
     state.scriptUrl = url;
-    state.schema = result.data;
+    const cleanSchema = result.data.sheets || result.data;
+    state.schema = cleanSchema;
     
     StorageManager.setScriptUrl(url);
-    StorageManager.setSchema(result.data);
+    StorageManager.setSchema(cleanSchema);
     
     DOM.scriptUrlInput.value = url;
     
