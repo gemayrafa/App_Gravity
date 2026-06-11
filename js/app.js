@@ -14,28 +14,28 @@ const DEFAULT_SCHEMA = {
     headers: ["Fecha", "Obra", "Cliente", "Origen", "Productos", "Metros", "Importe", "Estado", "Notas"],
     dropdownOptions: {
       "Estado": ["25%", "50%", "75%", "100%"],
-      "Cliente": ["Mapei S.A.", "Construcciones Alfa", "Grupo Iberia", "Ayuntamiento Madrid"],
-      "Origen": ["Prescriptor", "Distribuidor", "Constructor", "Página Web"]
+      "Cliente": [],
+      "Origen": []
     }
   },
   "Iniciativas": {
     headers: ["Fecha", "Iniciativa", "Responsable", "Descripción", "Presupuesto", "Estado", "Notas"],
     dropdownOptions: {
       "Estado": ["Planificada", "En Curso", "Evaluada", "Finalizada"],
-      "Responsable": ["Juan Pérez", "María Gómez", "Carlos Ruiz", "Sofía Martín"]
+      "Responsable": []
     }
   },
   "Formaciones": {
     headers: ["Fecha", "Formación", "Instructor", "Asistentes", "Costo", "Estado", "Notas"],
     dropdownOptions: {
       "Estado": ["Programada", "Impartida", "Cancelada"],
-      "Instructor": ["Laura Torres", "Diego López", "Elena Basso"]
+      "Instructor": []
     }
   },
   "Actividad": {
     headers: ["Fecha", "Actividad", "Tipo", "Horas", "Coste Asoc", "Notas"],
     dropdownOptions: {
-      "Tipo": ["Visita Técnica", "Reunión", "Demostración", "Preparación", "Administrativo"]
+      "Tipo": []
     }
   }
 };
