@@ -51,7 +51,8 @@ const state = {
   schema: null,
   activeComboboxes: {}, // Map of initialized Combobox instances
   isSyncing: false,
-  activeTabRows: [] // List of fetched records for the active tab
+  activeTabRows: [], // List of fetched records for the active tab
+  searchCombobox: null // Searchable select combobox instance
 };
 
 // --- DOM Elements ---
@@ -77,7 +78,6 @@ const DOM = {
   fieldsCountBadge: document.getElementById('fields-count-badge'),
   dynamicForm: document.getElementById('dynamic-entry-form'),
   fieldsContainer: document.getElementById('dynamic-fields-container'),
-  searchRecordSelect: document.getElementById('search-record-select'),
   refreshRecordsBtn: document.getElementById('refresh-records-btn'),
   editRowNumber: document.getElementById('edit-row-number'),
   submitFormBtn: document.getElementById('submit-form-btn'),
@@ -636,6 +636,11 @@ function resetActiveForm() {
     state.activeComboboxes[key].setValue('');
   });
   
+  // Reset search combobox
+  if (state.searchCombobox) {
+    state.searchCombobox.setValue('');
+  }
+  
   // Reset file upload custom states and UIs
   const fileInputs = DOM.fieldsContainer.querySelectorAll('input[type="file"]');
   fileInputs.forEach(input => {
@@ -971,7 +976,6 @@ function bindEvents() {
   DOM.clearHistoryBtn.addEventListener('click', clearLogsHistory);
   
   // Search Actions
-  DOM.searchRecordSelect.addEventListener('change', handleSearchSelectChange);
   DOM.refreshRecordsBtn.addEventListener('click', handleRefreshRecordsClick);
   
   // Modal Actions
@@ -997,76 +1001,71 @@ function toggleModal(show) {
 // --- Record Retrieval & Editing ---
 
 async function loadTabRecords() {
-  if (!state.scriptUrl || !DOM.searchRecordSelect) return;
+  if (!state.scriptUrl) return;
   
-  const currentTab = state.activeTab;
+  const container = document.getElementById('search-record-combobox-container');
+  if (!container) return;
   
   // Disable search controls during load
-  DOM.searchRecordSelect.disabled = true;
   DOM.refreshRecordsBtn.classList.add('spin');
+  container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.9rem; padding: 0.5rem 0;">Cargando registros...</div>';
   
-  const defaultOption = document.createElement('option');
-  defaultOption.value = '';
-  defaultOption.textContent = '-- Cargando registros... --';
-  DOM.searchRecordSelect.innerHTML = '';
-  DOM.searchRecordSelect.appendChild(defaultOption);
-  
-  const result = await ConnectionManager.fetchRows(state.scriptUrl, currentTab);
+  const result = await ConnectionManager.fetchRows(state.scriptUrl, state.activeTab);
   
   DOM.refreshRecordsBtn.classList.remove('spin');
-  DOM.searchRecordSelect.disabled = false;
-  DOM.searchRecordSelect.innerHTML = '';
-  
-  const createNewOption = document.createElement('option');
-  createNewOption.value = '';
-  createNewOption.textContent = '-- Crear Nuevo Registro (Limpiar) --';
-  DOM.searchRecordSelect.appendChild(createNewOption);
+  container.innerHTML = '';
   
   if (result.success) {
     state.activeTabRows = result.rows;
     
     if (result.rows.length === 0) {
-      const emptyOption = document.createElement('option');
-      emptyOption.value = '';
-      emptyOption.textContent = '-- No hay registros guardados --';
-      DOM.searchRecordSelect.appendChild(emptyOption);
+      container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.9rem; padding: 0.5rem 0;">No hay registros guardados</div>';
+      state.searchCombobox = null;
     } else {
       // Reverse the array to show recent records first
       const sortedRows = [...result.rows].reverse();
       
-      sortedRows.forEach(row => {
-        const option = document.createElement('option');
-        option.value = row.rowNumber;
-        
-        // Format display label
-        const displayTitleKey = StorageManager.getDisplayTitleKey(currentTab);
+      const labels = sortedRows.map(row => {
+        const displayTitleKey = StorageManager.getDisplayTitleKey(state.activeTab);
         const titleVal = row[displayTitleKey] || '';
         const dateVal = row["Fecha"] || '';
         
-        // Clean date if it's full ISO
         let dateDisplay = dateVal;
         if (dateVal.includes('T')) {
           dateDisplay = dateVal.split('T')[0];
         }
         
-        option.textContent = `${dateDisplay} - ${titleVal}`.trim() || `Registro #${row.rowNumber}`;
-        DOM.searchRecordSelect.appendChild(option);
+        return `${dateDisplay} - ${titleVal}`.trim() || `Registro #${row.rowNumber}`;
       });
+      
+      // Instantiate searchable Combobox
+      state.searchCombobox = new Combobox(container, {
+        options: labels,
+        placeholder: 'Escribe para buscar y selecciona...',
+        id: 'search-record-select',
+        name: 'search-record',
+        required: false,
+        value: ''
+      });
+      
+      // Bind change event on the combobox's input
+      const inputEl = document.getElementById('search-record-select');
+      if (inputEl) {
+        inputEl.addEventListener('change', handleSearchSelectChange);
+      }
     }
   } else {
     console.error("Error loading records:", result.error);
-    const errorOption = document.createElement('option');
-    errorOption.value = '';
-    errorOption.textContent = '-- Error al cargar registros --';
-    DOM.searchRecordSelect.appendChild(errorOption);
+    container.innerHTML = '<div style="color: var(--danger); font-size: 0.9rem; padding: 0.5rem 0;">Error al cargar registros</div>';
     state.activeTabRows = [];
+    state.searchCombobox = null;
   }
 }
 
 function handleSearchSelectChange(e) {
-  const rowNumber = e.target.value;
+  const selectedLabel = e.target.value.trim();
   
-  if (!rowNumber) {
+  if (!selectedLabel) {
     // Switch to create mode
     resetActiveForm();
     DOM.editRowNumber.value = '';
@@ -1075,8 +1074,28 @@ function handleSearchSelectChange(e) {
     return;
   }
   
-  const row = state.activeTabRows.find(r => r.rowNumber == rowNumber);
-  if (!row) return;
+  // Find the row by comparing its formatted label with the selected label
+  const row = state.activeTabRows.find(r => {
+    const displayTitleKey = StorageManager.getDisplayTitleKey(state.activeTab);
+    const titleVal = r[displayTitleKey] || '';
+    const dateVal = r["Fecha"] || '';
+    
+    let dateDisplay = dateVal;
+    if (dateVal.includes('T')) {
+      dateDisplay = dateVal.split('T')[0];
+    }
+    
+    const label = `${dateDisplay} - ${titleVal}`.trim() || `Registro #${r.rowNumber}`;
+    return label === selectedLabel;
+  });
+  
+  if (!row) {
+    // If it's a typed query that doesn't match any existing record exactly, keep in create mode
+    DOM.editRowNumber.value = '';
+    DOM.submitFormBtn.innerHTML = '<i data-lucide="save"></i> Guardar Registro';
+    if (window.lucide) window.lucide.createIcons();
+    return;
+  }
   
   // Enter edit mode
   DOM.editRowNumber.value = row.rowNumber;
