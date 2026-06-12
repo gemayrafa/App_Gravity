@@ -33,9 +33,13 @@ const DEFAULT_SCHEMA = {
     }
   },
   "Actividad": {
-    headers: ["Fecha", "Actividad", "Tipo", "Horas", "Coste Asoc", "Notas"],
+    headers: ["Fecha", "Tipo", "Perfil", "Nombre", "Asunto", "Descripción", "Adjuntos", "Respuesta", "Resuelto"],
     dropdownOptions: {
-      "Tipo": []
+      "Tipo": [],
+      "Perfil": [],
+      "Asunto": [],
+      "Respuesta": [],
+      "Resuelto": ["Pendiente", "Sí", "No", "Derivado"]
     }
   }
 };
@@ -239,7 +243,7 @@ function renderActiveForm() {
     
     // Determine the field type and setup matching input constraints
     const dropdownOptions = tabSchema.dropdownOptions ? tabSchema.dropdownOptions[header] : null;
-    const isOpenDropdown = ["Cliente", "Responsable", "Instructor", "Tipo", "Origen"].includes(header);
+    const isOpenDropdown = ["Cliente", "Responsable", "Instructor", "Tipo", "Origen", "Perfil", "Asunto", "Respuesta"].includes(header);
     
     if (isOpenDropdown) {
       // 1. OPEN DROPDOWN: Autocomplete Combobox
@@ -328,6 +332,103 @@ function renderActiveForm() {
       fieldGroup.appendChild(input);
       DOM.fieldsContainer.appendChild(fieldGroup);
       
+    } else if (header.toLowerCase() === 'adjuntos') {
+      // 5b. ATTACHMENT FIELD (Custom premium file upload)
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.id = `field-${header}`;
+      input.name = header;
+      input.accept = 'image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      input.style.display = 'none';
+      input.fileData = null; // Store base64 data here
+      
+      const uploadZone = document.createElement('div');
+      uploadZone.className = 'file-upload-zone';
+      uploadZone.id = `upload-zone-${header}`;
+      
+      const uploadIcon = document.createElement('i');
+      uploadIcon.setAttribute('data-lucide', 'upload-cloud');
+      uploadIcon.className = 'upload-icon';
+      uploadZone.appendChild(uploadIcon);
+      
+      const uploadText = document.createElement('span');
+      uploadText.className = 'upload-text';
+      uploadText.textContent = 'Seleccionar archivo (máx. 3MB)';
+      uploadZone.appendChild(uploadText);
+      
+      const fileName = document.createElement('span');
+      fileName.className = 'file-name hidden';
+      uploadZone.appendChild(fileName);
+      
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'btn-remove-file hidden';
+      removeBtn.title = 'Eliminar archivo';
+      removeBtn.innerHTML = '<i data-lucide="x"></i>';
+      uploadZone.appendChild(removeBtn);
+      
+      fieldGroup.appendChild(input);
+      fieldGroup.appendChild(uploadZone);
+      DOM.fieldsContainer.appendChild(fieldGroup);
+      
+      // Events for upload interactions
+      uploadZone.addEventListener('click', () => {
+        input.click();
+      });
+      
+      input.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        if (file.size > 3 * 1024 * 1024) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Archivo demasiado grande',
+            text: 'El tamaño máximo permitido es 3 MB.',
+            confirmButtonColor: 'var(--primary)'
+          });
+          input.value = '';
+          return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const base64Data = e.target.result.split(',')[1];
+          input.fileData = {
+            filename: file.name,
+            mimeType: file.type,
+            base64: base64Data
+          };
+          
+          // Update UI
+          uploadIcon.style.display = 'none';
+          uploadText.style.display = 'none';
+          fileName.textContent = file.name;
+          fileName.classList.remove('hidden');
+          removeBtn.classList.remove('hidden');
+          
+          if (window.lucide) {
+            window.lucide.createIcons({
+              nodeList: [uploadZone]
+            });
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+      
+      removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent opening file chooser
+        input.value = '';
+        input.fileData = null;
+        
+        // Reset UI
+        uploadIcon.style.display = 'block';
+        uploadText.style.display = 'block';
+        fileName.textContent = '';
+        fileName.classList.add('hidden');
+        removeBtn.classList.add('hidden');
+      });
+      
     } else {
       // 6. STANDARD TEXT INPUT
       const input = document.createElement('input');
@@ -376,7 +477,11 @@ async function handleFormSubmit(e) {
     } else {
       const el = document.getElementById(`field-${header}`);
       if (el) {
-        value = el.value.trim();
+        if (el.type === 'file') {
+          value = el.fileData ? JSON.stringify(el.fileData) : '';
+        } else {
+          value = el.value.trim();
+        }
         if (el.required && !value) {
           isValid = false;
           el.style.borderColor = 'var(--danger)';
@@ -483,6 +588,28 @@ function resetActiveForm() {
   // Reset combobox elements
   Object.keys(state.activeComboboxes).forEach(key => {
     state.activeComboboxes[key].setValue('');
+  });
+  
+  // Reset file upload custom states and UIs
+  const fileInputs = DOM.fieldsContainer.querySelectorAll('input[type="file"]');
+  fileInputs.forEach(input => {
+    input.fileData = null;
+    const header = input.name;
+    const uploadZone = document.getElementById(`upload-zone-${header}`);
+    if (uploadZone) {
+      const uploadIcon = uploadZone.querySelector('.upload-icon');
+      const uploadText = uploadZone.querySelector('.upload-text');
+      const fileName = uploadZone.querySelector('.file-name');
+      const removeBtn = uploadZone.querySelector('.btn-remove-file');
+      
+      if (uploadIcon) uploadIcon.style.display = 'block';
+      if (uploadText) uploadText.style.display = 'block';
+      if (fileName) {
+        fileName.textContent = '';
+        fileName.classList.add('hidden');
+      }
+      if (removeBtn) removeBtn.classList.add('hidden');
+    }
   });
 }
 

@@ -1106,3 +1106,95 @@ html {
   from { transform: translateX(-20px); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
 }
+
+/* =========================================================================
+   PREMIUM FILE UPLOAD FIELD
+   ========================================================================= */
+
+.file-upload-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 1.5rem 1rem;
+  background-color: var(--bg-input);
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  position: relative;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast), box-shadow var(--transition-fast);
+  text-align: center;
+  min-height: 100px;
+}
+
+.file-upload-zone:hover {
+  border-color: var(--primary);
+  background-color: rgba(79, 70, 229, 0.03);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="dark"] .file-upload-zone:hover {
+  background-color: rgba(99, 102, 241, 0.04);
+}
+
+.file-upload-zone .upload-icon {
+  width: 32px;
+  height: 32px;
+  color: var(--primary);
+  transition: transform var(--transition-fast);
+}
+
+.file-upload-zone:hover .upload-icon {
+  transform: translateY(-2px);
+}
+
+.file-upload-zone .upload-text {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.file-upload-zone .file-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--primary);
+  background-color: var(--primary-light);
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  max-width: 90%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  animation: fade-in 0.2s ease;
+}
+
+.file-upload-zone .btn-remove-file {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background-color: var(--danger-light);
+  color: var(--danger);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform var(--transition-fast), background-color var(--transition-fast);
+  z-index: 10;
+}
+
+.file-upload-zone .btn-remove-file:hover {
+  transform: scale(1.08);
+  background-color: #fee2e2;
+}
+
+.file-upload-zone .btn-remove-file i {
+  width: 14px;
+  height: 14px;
+}
+
