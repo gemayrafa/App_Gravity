@@ -1000,6 +1000,29 @@ function toggleModal(show) {
 
 // --- Record Retrieval & Editing ---
 
+function getRowSearchLabel(row, tabName) {
+  const dateVal = row["Fecha"] || '';
+  let dateDisplay = dateVal;
+  if (dateVal.includes('T')) {
+    dateDisplay = dateVal.split('T')[0];
+  }
+  
+  if (tabName === "Obras") {
+    const cliente = row["Cliente"] || '';
+    const obra = row["Obra"] || '';
+    return `${dateDisplay} - ${cliente} - ${obra}`.replace(/ - \s*$/, '').trim() || `Registro #${row.rowNumber}`;
+  } else if (tabName === "Actividad") {
+    const nombre = row["Nombre"] || '';
+    const asunto = row["Asunto"] || '';
+    return `${dateDisplay} - ${nombre} - ${asunto}`.replace(/ - \s*$/, '').trim() || `Registro #${row.rowNumber}`;
+  } else {
+    // Fallback para otras pestañas (Iniciativas, Formaciones)
+    const displayTitleKey = StorageManager.getDisplayTitleKey(tabName);
+    const titleVal = row[displayTitleKey] || '';
+    return `${dateDisplay} - ${titleVal}`.replace(/ - \s*$/, '').trim() || `Registro #${row.rowNumber}`;
+  }
+}
+
 async function loadTabRecords() {
   if (!state.scriptUrl) return;
   
@@ -1025,18 +1048,7 @@ async function loadTabRecords() {
       // Reverse the array to show recent records first
       const sortedRows = [...result.rows].reverse();
       
-      const labels = sortedRows.map(row => {
-        const displayTitleKey = StorageManager.getDisplayTitleKey(state.activeTab);
-        const titleVal = row[displayTitleKey] || '';
-        const dateVal = row["Fecha"] || '';
-        
-        let dateDisplay = dateVal;
-        if (dateVal.includes('T')) {
-          dateDisplay = dateVal.split('T')[0];
-        }
-        
-        return `${dateDisplay} - ${titleVal}`.trim() || `Registro #${row.rowNumber}`;
-      });
+      const labels = sortedRows.map(row => getRowSearchLabel(row, state.activeTab));
       
       // Instantiate searchable Combobox
       state.searchCombobox = new Combobox(container, {
@@ -1076,16 +1088,7 @@ function handleSearchSelectChange(e) {
   
   // Find the row by comparing its formatted label with the selected label
   const row = state.activeTabRows.find(r => {
-    const displayTitleKey = StorageManager.getDisplayTitleKey(state.activeTab);
-    const titleVal = r[displayTitleKey] || '';
-    const dateVal = r["Fecha"] || '';
-    
-    let dateDisplay = dateVal;
-    if (dateVal.includes('T')) {
-      dateDisplay = dateVal.split('T')[0];
-    }
-    
-    const label = `${dateDisplay} - ${titleVal}`.trim() || `Registro #${r.rowNumber}`;
+    const label = getRowSearchLabel(r, state.activeTab);
     return label === selectedLabel;
   });
   
