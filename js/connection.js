@@ -44,19 +44,21 @@ export const ConnectionManager = {
   },
 
   /**
-   * Appends a new row to the specified Google Sheet tab
+   * Appends a new row or updates an existing row in the specified Google Sheet tab
    * @param {string} scriptUrl 
    * @param {string} tabName 
    * @param {object} rowData 
+   * @param {number|string|null} rowNumber
    * @returns {Promise<{success: boolean, message?: string, error?: string}>}
    */
-  async sendRow(scriptUrl, tabName, rowData) {
+  async sendRow(scriptUrl, tabName, rowData, rowNumber = null) {
     if (!scriptUrl) return { success: false, error: 'URL del script no configurada' };
     
     try {
       const payload = {
         tabName: tabName,
-        data: rowData
+        data: rowData,
+        rowNumber: rowNumber
       };
 
       // CRITICAL CORS BYPASS: Using 'text/plain' Content-Type avoids triggering the preflight OPTIONS request.
@@ -86,6 +88,43 @@ export const ConnectionManager = {
       return { 
         success: false, 
         error: 'Error de red. El registro se guardará en la cola offline y se sincronizará cuando vuelvas a tener conexión.' 
+      };
+    }
+  },
+
+  /**
+   * Fetches all rows from the specified tab in Google Sheets
+   * @param {string} scriptUrl 
+   * @param {string} tabName 
+   * @returns {Promise<{success: boolean, rows?: Array<object>, error?: string}>}
+   */
+  async fetchRows(scriptUrl, tabName) {
+    if (!scriptUrl) return { success: false, error: 'URL del script no configurada' };
+    
+    try {
+      const url = `${scriptUrl}?action=getRows&tabName=${encodeURIComponent(tabName)}&_cb=${Date.now()}`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'omit'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      if (result.success) {
+        return { success: true, rows: result.rows };
+      } else {
+        return { success: false, error: result.error || 'Error desconocido' };
+      }
+    } catch (error) {
+      console.error('Fetch Rows Error:', error);
+      return { 
+        success: false, 
+        error: 'No se pudieron descargar los registros. Verifica tu conexión de red o la configuración del script.' 
       };
     }
   },

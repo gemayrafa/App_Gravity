@@ -134,7 +134,7 @@ export const StorageManager = {
       case "Obras": return "Obra";
       case "Iniciativas": return "Iniciativa";
       case "Formaciones": return "Formación";
-      case "Actividad": return "Actividad";
+      case "Actividad": return "Asunto";
       default: return "Fecha";
     }
   }

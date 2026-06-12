@@ -100,8 +100,24 @@
             <span class="badge" id="fields-count-badge">0 campos</span>
           </div>
           
+          <!-- Search / Edit Record section -->
+          <div class="search-record-group" id="search-record-group">
+            <label for="search-record-select">✏️ Editar Registro Existente</label>
+            <div class="search-select-wrapper">
+              <select id="search-record-select">
+                <option value="">-- Crear Nuevo Registro (Limpiar) --</option>
+              </select>
+              <button type="button" id="refresh-records-btn" class="icon-btn-search" title="Recargar registros">
+                <i data-lucide="refresh-cw"></i>
+              </button>
+            </div>
+          </div>
+          
           <!-- Dynamic Form -->
           <form id="dynamic-entry-form" novalidate autocomplete="off">
+            <!-- Hidden field to store row number of record being edited -->
+            <input type="hidden" id="edit-row-number" value="">
+            
             <div id="dynamic-fields-container">
               <!-- Inputs will be rendered dynamically by JS -->
             </div>
@@ -259,7 +275,7 @@
                 <p><strong>Implementa como Aplicación Web</strong></p>
                 <p>Haz clic en el botón azul <strong>Implementar</strong> ➔ <strong>Nueva implementación</strong>. Selecciona el tipo de engranaje <strong>Aplicación web</strong> y configura:</p>
                 <ul>
-                  <li><strong>Ejecutar como:</strong> Mismo usuario (tú)</li>
+                  <li><strong>Ejecutar como:</strong> Yo (tu dirección de correo electrónico)</li>
                   <li><strong>Quién tiene acceso:</strong> Cualquiera</li>
                 </ul>
                 <p>Haz clic en <strong>Implementar</strong>, autoriza los permisos y copia la URL generada que termina en <code>/exec</code>.</p>

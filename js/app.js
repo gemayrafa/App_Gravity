@@ -50,7 +50,8 @@ const state = {
   activeTab: 'Obras', // Default active sheet tab
   schema: null,
   activeComboboxes: {}, // Map of initialized Combobox instances
-  isSyncing: false
+  isSyncing: false,
+  activeTabRows: [] // List of fetched records for the active tab
 };
 
 // --- DOM Elements ---
@@ -76,6 +77,10 @@ const DOM = {
   fieldsCountBadge: document.getElementById('fields-count-badge'),
   dynamicForm: document.getElementById('dynamic-entry-form'),
   fieldsContainer: document.getElementById('dynamic-fields-container'),
+  searchRecordSelect: document.getElementById('search-record-select'),
+  refreshRecordsBtn: document.getElementById('refresh-records-btn'),
+  editRowNumber: document.getElementById('edit-row-number'),
+  submitFormBtn: document.getElementById('submit-form-btn'),
   
   // Sync banner
   offlineSyncCard: document.getElementById('offline-sync-card'),
@@ -115,6 +120,10 @@ document.addEventListener('DOMContentLoaded', () => {
   renderActiveForm();
   renderOfflineBanner();
   renderLogs();
+  
+  if (state.scriptUrl) {
+    loadTabRecords();
+  }
   
   // Auto-sync on startup if connected
   if (ConnectionManager.isOnline()) {
@@ -216,6 +225,9 @@ function handleNavigation(e) {
     state.activeTab = targetTab;
     showView('dashboard');
     renderActiveForm();
+    if (state.scriptUrl) {
+      loadTabRecords();
+    }
   }
 }
 
@@ -227,6 +239,12 @@ function renderActiveForm() {
   DOM.tabCategoryTitle.textContent = `Pestaña Activa`;
   DOM.activeSheetTitle.textContent = currentTab;
   DOM.fieldsCountBadge.textContent = `${tabSchema.headers.length} campos`;
+  
+  // Reset edit states
+  if (DOM.editRowNumber) DOM.editRowNumber.value = '';
+  if (DOM.submitFormBtn) {
+    DOM.submitFormBtn.innerHTML = '<i data-lucide="save"></i> Guardar Registro';
+  }
   
   DOM.fieldsContainer.innerHTML = '';
   state.activeComboboxes = {}; // Clear old references
@@ -360,6 +378,10 @@ function renderActiveForm() {
       fileName.className = 'file-name hidden';
       uploadZone.appendChild(fileName);
       
+      const previewImg = document.createElement('img');
+      previewImg.className = 'upload-preview hidden';
+      uploadZone.appendChild(previewImg);
+      
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.className = 'btn-remove-file hidden';
@@ -407,6 +429,15 @@ function renderActiveForm() {
           fileName.classList.remove('hidden');
           removeBtn.classList.remove('hidden');
           
+          // Show image preview if it's an image
+          if (file.type.startsWith('image/')) {
+            previewImg.src = e.target.result;
+            previewImg.classList.remove('hidden');
+          } else {
+            previewImg.src = '';
+            previewImg.classList.add('hidden');
+          }
+          
           if (window.lucide) {
             window.lucide.createIcons({
               nodeList: [uploadZone]
@@ -427,6 +458,8 @@ function renderActiveForm() {
         fileName.textContent = '';
         fileName.classList.add('hidden');
         removeBtn.classList.add('hidden');
+        previewImg.src = '';
+        previewImg.classList.add('hidden');
       });
       
     } else {
@@ -455,6 +488,18 @@ async function handleFormSubmit(e) {
   const currentTab = state.activeTab;
   const tabSchema = state.schema[currentTab] || DEFAULT_SCHEMA[currentTab];
   const rowData = {};
+  const rowNumber = DOM.editRowNumber ? DOM.editRowNumber.value : null;
+  
+  // Para actualizar registros, exigimos estar online por consistencia de base de datos
+  if (!ConnectionManager.isOnline() && rowNumber) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Sin conexión',
+      text: 'Para actualizar un registro existente debes estar en línea.',
+      confirmButtonColor: 'var(--primary)'
+    });
+    return;
+  }
   
   let isValid = true;
   
@@ -478,7 +523,7 @@ async function handleFormSubmit(e) {
       const el = document.getElementById(`field-${header}`);
       if (el) {
         if (el.type === 'file') {
-          value = el.fileData ? JSON.stringify(el.fileData) : '';
+          value = el.fileData ? (typeof el.fileData === 'object' ? JSON.stringify(el.fileData) : el.fileData) : '';
         } else {
           value = el.value.trim();
         }
@@ -512,15 +557,15 @@ async function handleFormSubmit(e) {
   if (ConnectionManager.isOnline() && state.scriptUrl) {
     // Show spinner loader dialog
     Swal.fire({
-      title: 'Guardando registro...',
-      text: 'Enviando los datos a Google Sheets.',
+      title: rowNumber ? 'Actualizando registro...' : 'Guardando registro...',
+      text: rowNumber ? 'Modificando la fila en Google Sheets.' : 'Enviando los datos a Google Sheets.',
       allowOutsideClick: false,
       didOpen: () => {
         Swal.showLoading();
       }
     });
     
-    const result = await ConnectionManager.sendRow(state.scriptUrl, currentTab, rowData);
+    const result = await ConnectionManager.sendRow(state.scriptUrl, currentTab, rowData, rowNumber);
     
     Swal.close();
     
@@ -529,14 +574,15 @@ async function handleFormSubmit(e) {
       
       Swal.fire({
         icon: 'success',
-        title: '¡Guardado con éxito!',
-        text: result.message || 'El registro se guardó en Google Sheets.',
+        title: rowNumber ? '¡Actualizado con éxito!' : '¡Guardado con éxito!',
+        text: result.message || (rowNumber ? 'El registro se actualizó correctamente.' : 'El registro se guardó en Google Sheets.'),
         timer: 2000,
         timerProgressBar: true,
         showConfirmButton: false
       });
       
       resetActiveForm();
+      loadTabRecords(); // Recargar el buscador
       
       // Fetch schema in the background to capture any new unique dropdown options
       refreshSchemaSilently();
@@ -601,6 +647,7 @@ function resetActiveForm() {
       const uploadText = uploadZone.querySelector('.upload-text');
       const fileName = uploadZone.querySelector('.file-name');
       const removeBtn = uploadZone.querySelector('.btn-remove-file');
+      const previewImg = uploadZone.querySelector('.upload-preview');
       
       if (uploadIcon) uploadIcon.style.display = 'block';
       if (uploadText) uploadText.style.display = 'block';
@@ -609,6 +656,10 @@ function resetActiveForm() {
         fileName.classList.add('hidden');
       }
       if (removeBtn) removeBtn.classList.add('hidden');
+      if (previewImg) {
+        previewImg.src = '';
+        previewImg.classList.add('hidden');
+      }
     }
   });
 }
@@ -919,6 +970,10 @@ function bindEvents() {
   DOM.syncNowBtn.addEventListener('click', syncOfflineQueue);
   DOM.clearHistoryBtn.addEventListener('click', clearLogsHistory);
   
+  // Search Actions
+  DOM.searchRecordSelect.addEventListener('change', handleSearchSelectChange);
+  DOM.refreshRecordsBtn.addEventListener('click', handleRefreshRecordsClick);
+  
   // Modal Actions
   DOM.closeGuideBtn.addEventListener('click', () => toggleModal(false));
   DOM.closeGuideBtnBottom.addEventListener('click', () => toggleModal(false));
@@ -937,4 +992,190 @@ function toggleModal(show) {
   } else {
     DOM.guideModal.classList.remove('open');
   }
+}
+
+// --- Record Retrieval & Editing ---
+
+async function loadTabRecords() {
+  if (!state.scriptUrl || !DOM.searchRecordSelect) return;
+  
+  const currentTab = state.activeTab;
+  
+  // Disable search controls during load
+  DOM.searchRecordSelect.disabled = true;
+  DOM.refreshRecordsBtn.classList.add('spin');
+  
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '';
+  defaultOption.textContent = '-- Cargando registros... --';
+  DOM.searchRecordSelect.innerHTML = '';
+  DOM.searchRecordSelect.appendChild(defaultOption);
+  
+  const result = await ConnectionManager.fetchRows(state.scriptUrl, currentTab);
+  
+  DOM.refreshRecordsBtn.classList.remove('spin');
+  DOM.searchRecordSelect.disabled = false;
+  DOM.searchRecordSelect.innerHTML = '';
+  
+  const createNewOption = document.createElement('option');
+  createNewOption.value = '';
+  createNewOption.textContent = '-- Crear Nuevo Registro (Limpiar) --';
+  DOM.searchRecordSelect.appendChild(createNewOption);
+  
+  if (result.success) {
+    state.activeTabRows = result.rows;
+    
+    if (result.rows.length === 0) {
+      const emptyOption = document.createElement('option');
+      emptyOption.value = '';
+      emptyOption.textContent = '-- No hay registros guardados --';
+      DOM.searchRecordSelect.appendChild(emptyOption);
+    } else {
+      // Reverse the array to show recent records first
+      const sortedRows = [...result.rows].reverse();
+      
+      sortedRows.forEach(row => {
+        const option = document.createElement('option');
+        option.value = row.rowNumber;
+        
+        // Format display label
+        const displayTitleKey = StorageManager.getDisplayTitleKey(currentTab);
+        const titleVal = row[displayTitleKey] || '';
+        const dateVal = row["Fecha"] || '';
+        
+        // Clean date if it's full ISO
+        let dateDisplay = dateVal;
+        if (dateVal.includes('T')) {
+          dateDisplay = dateVal.split('T')[0];
+        }
+        
+        option.textContent = `${dateDisplay} - ${titleVal}`.trim() || `Registro #${row.rowNumber}`;
+        DOM.searchRecordSelect.appendChild(option);
+      });
+    }
+  } else {
+    console.error("Error loading records:", result.error);
+    const errorOption = document.createElement('option');
+    errorOption.value = '';
+    errorOption.textContent = '-- Error al cargar registros --';
+    DOM.searchRecordSelect.appendChild(errorOption);
+    state.activeTabRows = [];
+  }
+}
+
+function handleSearchSelectChange(e) {
+  const rowNumber = e.target.value;
+  
+  if (!rowNumber) {
+    // Switch to create mode
+    resetActiveForm();
+    DOM.editRowNumber.value = '';
+    DOM.submitFormBtn.innerHTML = '<i data-lucide="save"></i> Guardar Registro';
+    if (window.lucide) window.lucide.createIcons();
+    return;
+  }
+  
+  const row = state.activeTabRows.find(r => r.rowNumber == rowNumber);
+  if (!row) return;
+  
+  // Enter edit mode
+  DOM.editRowNumber.value = row.rowNumber;
+  DOM.submitFormBtn.innerHTML = '<i data-lucide="edit-3"></i> Actualizar Registro';
+  if (window.lucide) window.lucide.createIcons();
+  
+  const currentTab = state.activeTab;
+  const tabSchema = state.schema[currentTab] || DEFAULT_SCHEMA[currentTab];
+  
+  // Populate each field in the form
+  tabSchema.headers.forEach(header => {
+    const value = row[header] !== undefined && row[header] !== null ? row[header].toString() : '';
+    
+    if (state.activeComboboxes[header]) {
+      state.activeComboboxes[header].setValue(value);
+    } else {
+      const el = document.getElementById(`field-${header}`);
+      if (el) {
+        if (el.type === 'file') {
+          // Reset standard file input value
+          el.value = '';
+          el.fileData = value; // Store the existing value (likely a URL string)
+          
+          const uploadZone = document.getElementById(`upload-zone-${header}`);
+          if (uploadZone) {
+            const uploadIcon = uploadZone.querySelector('.upload-icon');
+            const uploadText = uploadZone.querySelector('.upload-text');
+            const fileName = uploadZone.querySelector('.file-name');
+            const removeBtn = uploadZone.querySelector('.btn-remove-file');
+            const previewImg = uploadZone.querySelector('.upload-preview');
+            
+            if (value && value.startsWith('http')) {
+              // Existing attachment link
+              if (uploadIcon) uploadIcon.style.display = 'none';
+              if (uploadText) uploadText.style.display = 'none';
+              if (fileName) {
+                fileName.innerHTML = `<a href="${value}" target="_blank" style="color: inherit; text-decoration: underline; display: flex; align-items: center; gap: 0.25rem;"><i data-lucide="external-link" style="width: 14px; height: 14px;"></i> Ver adjunto actual</a>`;
+                fileName.classList.remove('hidden');
+              }
+              if (removeBtn) removeBtn.classList.remove('hidden');
+              if (previewImg) {
+                // If it's an image link, we can display the preview directly!
+                const lowerVal = value.toLowerCase();
+                const isImage = lowerVal.includes('.jpg') || lowerVal.includes('.jpeg') || lowerVal.includes('.png') || lowerVal.includes('.gif') || lowerVal.includes('.webp');
+                if (isImage) {
+                  previewImg.src = value;
+                  previewImg.classList.remove('hidden');
+                } else {
+                  previewImg.src = '';
+                  previewImg.classList.add('hidden');
+                }
+              }
+            } else {
+              // No existing file
+              if (uploadIcon) uploadIcon.style.display = 'block';
+              if (uploadText) uploadText.style.display = 'block';
+              if (fileName) {
+                fileName.textContent = '';
+                fileName.classList.add('hidden');
+              }
+              if (removeBtn) removeBtn.classList.add('hidden');
+              if (previewImg) {
+                previewImg.src = '';
+                previewImg.classList.add('hidden');
+              }
+            }
+            if (window.lucide) {
+              window.lucide.createIcons({
+                nodeList: [uploadZone]
+              });
+            }
+          }
+        } else if (el.type === 'date') {
+          // Normalize Sheets date representations (e.g. DD/MM/YYYY or ISO) for HTML input type="date"
+          let parsedDate = '';
+          const dmwMatch = value.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+          if (dmwMatch) {
+            const day = dmwMatch[1].padStart(2, '0');
+            const month = dmwMatch[2].padStart(2, '0');
+            const year = dmwMatch[3];
+            parsedDate = `${year}-${month}-${day}`;
+          } else {
+            const d = new Date(value);
+            if (!isNaN(d.getTime())) {
+              const yyyy = d.getFullYear();
+              const mm = String(d.getMonth() + 1).padStart(2, '0');
+              const dd = String(d.getDate()).padStart(2, '0');
+              parsedDate = `${yyyy}-${mm}-${dd}`;
+            }
+          }
+          el.value = parsedDate || value;
+        } else {
+          el.value = value;
+        }
+      }
+    }
+  });
+}
+
+function handleRefreshRecordsClick() {
+  loadTabRecords();
 }
